@@ -28,6 +28,9 @@
 
 #define REQUEST_TYPE_POLICY_CONFIG "audiofocuspolicy.json"
 #define CONFIG_DIR_PATH "/etc/palm/audiocontroller"
+
+#define AC_API_GET_STATUS "/getStatus"
+
 #define AC_ERR_CODE_INVALID_SCHEMA (1)
 #define AC_ERR_CODE_UNKNOWN_REQUEST (2)
 #define AC_ERR_CODE_INTERNAL (3)
@@ -111,6 +114,8 @@ private:
     bool requestAudioControl(LSHandle *sh, LSMessage *message, void *data);
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
 
+    void broadcastStatusToSubscribers();
+    std::string getAudioControllerStatusPayload();
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
     void createMapRequestNametoType();

@@ -51,8 +51,7 @@ const std::string getStatusschema                =  "{\
                                      \"type\" :\"object\",\
                                      \"properties\": {\
                                          \"subscribe\": {\"type\":\"boolean\"}\
-                                       },\
-                                     \"required\" :[]\
+                                       }\
                                     }";
 
 LSPalmService *AudioController::mServiceHandle;
@@ -371,6 +370,7 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
     }
 
     updateSessionActiveAppList(sessionId, appId, requestType);
+    broadcastStatusToSubscribers();
     return true;
 }
 
@@ -622,6 +622,7 @@ void AudioController::updateSessionActiveAppList(const std::string& sessionId, c
     {
         SessionInfo newSessionInfo;
         newSessionInfo.activeAppList.push_back(newAppInfo);
+        newSessionInfo.sessionId = sessionId;
         mSessionInfoMap[sessionId] = newSessionInfo;
         PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionActiveAppList: new session details added. Session: %s", \
                 sessionId.c_str());
@@ -676,7 +677,111 @@ Functionality of this method:
 bool AudioController::getStatus(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus");
+    const char* payload = LSMessageGetPayload(message);
+    pbnjson::JSchemaFragment inputSchema(getStatusschema);
+    pbnjson::JDomParser parser(NULL);
+    LSError lserror;
+    LSErrorInit (&lserror);
+
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
+    if (!parser.parse(payload, inputSchema, NULL))
+    {
+        if (!returnErrorText(sh, message, "Invalid schema", AC_ERR_CODE_INVALID_SCHEMA))
+        {
+            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "getStatus: Failed to sent error text for Invalid Schema");
+        }
+        return true;
+    }
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
+
+    pbnjson::JValue root = parser.getDom();
+    bool subscription = root["subscribe"].asBool();
+    if (LSMessageIsSubscription (message))
+    {
+        if (!LSSubscriptionProcess(sh, message, &subscription, &lserror))
+        {
+            LSErrorPrintAndFree(&lserror);
+        }
+    }
+
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
+    if (!sendSignal(sh, message, getAudioControllerStatusPayload(), NULL))
+    {
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"getStatus: sendSignal failed");
+
+    }
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus: Succesfully sent response");
     return true;
+}
+
+/*Functionality of this method
+ * TO get the JSON payload for getStatus response in string format
+ */
+std::string AudioController::getAudioControllerStatusPayload()
+{
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getAudioControllerStatusPayload");
+
+    pbnjson::JValue audioFocusStatus = pbnjson::JObject();
+    pbnjson::JArray sessionsList = pbnjson::JArray();
+    for (auto sessionInfomap : mSessionInfoMap)
+    {
+        SessionInfo& sessionInfo = sessionInfomap.second;
+        pbnjson::JArray activeAppArray = pbnjson::JArray();
+        pbnjson::JArray pausedAppArray = pbnjson::JArray();
+        pbnjson::JValue curSession = pbnjson::JObject();
+
+        curSession.put("sessionId",sessionInfo.sessionId);
+        for (auto activeAppInfo : sessionInfo.activeAppList)
+        {
+            pbnjson::JValue activeApp = pbnjson::JObject();
+            activeApp.put("appId", activeAppInfo.appId);
+            activeApp.put("requestType", mRequestTypeToName[activeAppInfo.request]);
+            activeAppArray.append(activeApp);
+        }
+        curSession.put("activeRequests",activeAppArray);
+
+        for (auto pausedAppInfo : sessionInfo.pausedAppList)
+        {
+            pbnjson::JValue pausedApp = pbnjson::JObject();
+            pausedApp.put("appId", pausedAppInfo.appId);
+            pausedApp.put("requestType", mRequestTypeToName[pausedAppInfo.request]);
+            pausedAppArray.append(pausedApp);
+        }
+        curSession.put("pausedRequests", pausedAppArray);
+        sessionsList.append(curSession);
+    }
+
+    audioFocusStatus.put("audioFocusStatus", sessionsList);
+    return audioFocusStatus.stringify();
+}
+
+/*
+ * Functionality of this method:
+ * Notigy /getStatus subscribers on the current audiocontroller status
+ */
+void AudioController::broadcastStatusToSubscribers()
+{
+    LSError lserror;
+    LSErrorInit(&lserror);
+    std::string reply = getAudioControllerStatusPayload();
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscribers: reply message to subscriber: %s", \
+            reply.c_str());
+    //TODO: This is deprecated method for accessing LsHandle.
+    //Once the entire LS subscription mechanism is updated for the new API sets this also will be upgraded.
+    LSHandle *shHandle = LSPalmServiceGetPrivateConnection(mServiceHandle);
+    if (!shHandle)
+    {
+        shHandle = LSPalmServiceGetPublicConnection(mServiceHandle);
+        if (!shHandle)
+        {
+            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscriber:: failed to get lsHandle");
+            return;
+        }
+    }
+    if (!LSSubscriptionReply(shHandle, AC_API_GET_STATUS, reply.c_str(), &lserror))
+    {
+        LSErrorPrintAndFree(&lserror);
+    }
 }
 
 /*
