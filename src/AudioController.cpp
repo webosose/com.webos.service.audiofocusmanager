@@ -360,7 +360,7 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
     if (!sendSignal(sh, message, "AC_GRANTED", NULL))
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: sendSignal failed : AC_GRANTED");
-        //TODO: Add failover steps
+        //TODO: Add failover steps, update paused list if needed
         return true;
     }
 
@@ -477,6 +477,13 @@ bool AudioController::checkFeasibility(const std::string& sessionId, common::Req
         if (activeRequestPolicy.priority < newRequestPolicy.priority && \
                 activeRequestPolicy.type != "mix")
         {
+            //Check if the app is alive
+            if (!checkSubscription(itActive.appId))
+            {
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: active app : %s is not alive", itActive.appId.c_str());
+                //TODO: Remove from the list and see if pausedapp list needs any update
+                continue;
+            }
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: newrequestType: %s cannot be granted due to active request: %s", \
                     mRequestTypeToName[newRequestPolicy.request].c_str(), mRequestTypeToName[activeRequestPolicy.request].c_str());
             return false;
@@ -666,10 +673,144 @@ Functionality of this method:
 bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl");
-    return true;
+    const char* payload = LSMessageGetPayload(message);
+    pbnjson::JSchemaFragment inputSchema(getStatusschema);
+    pbnjson::JDomParser parser(NULL);
+    LSError lserror;
+    LSErrorInit (&lserror);
 
+    if (!parser.parse(payload, inputSchema, NULL))
+    {
+        if (!returnErrorText(sh, message, "Invalid schema", AC_ERR_CODE_INVALID_SCHEMA))
+        {
+            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Invalid Schema");
+        }
+        return true;
+    }
+
+    pbnjson::JValue root = parser.getDom();
+    std::string sessionId = root["sessionId"].asString();
+
+    const char* appId = LSMessageGetApplicationID(message);
+    if (appId == NULL)
+    {
+        appId = LSMessageGetSenderServiceName(message);
+        if (appId == NULL)
+        {
+            if (!returnErrorText(sh, message, "Internal error", AC_ERR_CODE_INTERNAL))
+            {
+                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Internal Error \
+                        due to NULL appId to %s", appId);
+            }
+            return true;
+        }
+    }
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl: sessionId: %s appId: %s", sessionId.c_str(), appId);
+
+    auto itSession = mSessionInfoMap.find(sessionId);
+    if (itSession == mSessionInfoMap.end())
+    {
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl: Session ID cannot be find");
+        if (!returnErrorText(sh, message, "Session Id not found", AC_ERR_CODE_INTERNAL))
+        {
+            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Internal Error \
+                    due to session ID not found");
+        }
+        return true;
+    }
+
+    SessionInfo& curSessionInfo = itSession->second;
+
+    for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
+    {
+        if (itPaused->appId == appId)
+        {
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl: Removing appId: %s Request type: %s", \
+                    appId, mRequestTypeToName[itPaused->request].c_str());
+            if (!unsubscribingApp(appId))
+            {
+                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: unsubscribingApp failed for %s", appId);
+            }
+            curSessionInfo.pausedAppList.erase(itPaused--);
+            if (!sendSignal(sh, message, "AC_SUCCESSFULLY_RELEASED", NULL))
+            {
+                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent message: AC_SUCCESSFULLY_RELEASED");
+            }
+            return true;
+        }
+    }
+
+    for (auto itActive = curSessionInfo.activeAppList.begin(); itActive != curSessionInfo.activeAppList.end(); itActive++)
+    {
+        if (itActive->appId == appId)
+        {
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl: Removing appId: %s Request type: %s", \
+                    appId, mRequestTypeToName[itActive->request].c_str());
+            if (!unsubscribingApp(appId))
+            {
+                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: unsubscribingApp failed for %s", appId);
+            }
+            curSessionInfo.activeAppList.erase(itActive--);
+            updatePausedAppStatus(curSessionInfo, itActive->request);
+            if (!sendSignal(sh, message, "AC_SUCCESSFULLY_RELEASED", NULL))
+            {
+                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent message: AC_SUCCESSFULLY_RELEASED");
+            }
+            return true;
+        }
+    }
+
+    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl: appId: %s cannot be found in session: %s" , \
+            appId, curSessionInfo.sessionId.c_str());
+    if (!returnErrorText(sh, message, "Application not registered", AC_ERR_CODE_INTERNAL))
+    {
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Internal Error: \
+                application not registered");
+    }
+    return true;
 }
 
+/*Functionality of this method:
+ * To update the paused app list in the session based on the removed request type policy
+ */
+void AudioController::updatePausedAppStatus(SessionInfo& sessionInfo, common::RequestType removedRequest)
+{
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updatePausedAppStatus: Request Type: %s", mRequestTypeToName[removedRequest]);
+
+    auto requestInfoIt = mACRequestPolicyInfo.find(removedRequest);
+    if(requestInfoIt == mACRequestPolicyInfo.end())
+    {
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type");
+        return;
+    }
+    if (requestInfoIt->second.type != "short")
+    {
+        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: request type is not short. Nothing to update");
+        return;
+    }
+
+    for( auto activeApp : sessionInfo.activeAppList)
+    {
+        auto activeRequestInfo = mACRequestPolicyInfo.find(activeApp.request);
+        if (activeRequestInfo == mACRequestPolicyInfo.end())
+        {
+            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type in active app");
+            continue;
+        }
+        if (activeRequestInfo->second.type == "short")
+        {
+            PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: other short streams active. Nothing to update");
+            return;
+        }
+    }
+
+    for (auto itPaused = sessionInfo.pausedAppList.begin(); itPaused != sessionInfo.pausedAppList.end(); itPaused++)
+    {
+        sessionInfo.pausedAppList.push_back(*itPaused);
+        sessionInfo.pausedAppList.erase(itPaused--);
+    }
+    return;
+}
 /*
 Functionality of this method:
 ->This will return the current status of granted request types in audiocontroller for each session
@@ -792,8 +933,8 @@ Functionality of this method:
 bool AudioController::signalToApp(const std::string& applicationId, const std::string& signalMessage)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"signalToApp");
-		//TODO: Implement LS Message
-		return true;
+    //TODO: Implement LS Message
+    return true;
     LSHandle *serviceHandlePrivate = NULL;
     serviceHandlePrivate = LSPalmServiceGetPrivateConnection(mServiceHandle);
 
@@ -902,7 +1043,6 @@ bool AudioController::subscriptionUtility(const std::string& applicationId, LSHa
 
 bool AudioController::sendSignal(LSHandle *serviceHandle, LSMessage *iter_message, const std::string& signalMessage, LSError *lserror)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"sendSignal");
     pbnjson::JValue jsonObject = pbnjson::Object();
     jsonObject.put("errorCode", 0);
     jsonObject.put("returnValue", true);

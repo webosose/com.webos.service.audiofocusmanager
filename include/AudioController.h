@@ -124,6 +124,7 @@ private:
     bool checkFeasibility(const std::string& sessionId, common::RequestType requestType);
     bool updateCurrentAppStatus(const std::string& sessionId, common::RequestType newRequest);
     void updateSessionActiveAppList(const std::string& sessionId, const std::string appId, common::RequestType requestType);
+    void updatePausedAppStatus(SessionInfo& sessionInfo, common::RequestType removedRequest);
     bool sendLostMessage();
     bool sendPauseMessage();
     bool signalToApp(const std::string& appId, const std::string& signalMessage);
