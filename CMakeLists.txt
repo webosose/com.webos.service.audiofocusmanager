@@ -5,7 +5,7 @@
 # LICENSE@@@
 
 cmake_minimum_required(VERSION 2.8.7)
-project(audiocontroller)
+project(audiofocusmanager)
 
 include(webOS/webOS)
 webos_modules_init(1 0 0 QUALIFIER RC4)
@@ -26,7 +26,7 @@ add_definitions(${PMLOGLIB_CFLAGS})
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-set(LOCATION_SERVICE_NAME audiocontroller)
+set(LOCATION_SERVICE_NAME audiofocusmanager)
 set(SRC
         ${PROJECT_SOURCE_DIR}/src/main.cpp
         ${PROJECT_SOURCE_DIR}/src/AudioController.cpp
@@ -48,6 +48,6 @@ webos_build_system_bus_files()
 webos_build_daemon()
 
 install(DIRECTORY include/
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/audiocontroller
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/audiofocusmanager
         FILES_MATCHING PATTERN "*.h")
-install(FILES files/config/audiofocuspolicy.json DESTINATION ${WEBOS_INSTALL_WEBOS_SYSCONFDIR}/audiocontroller)
+install(FILES files/config/audiofocuspolicy.json DESTINATION ${WEBOS_INSTALL_WEBOS_SYSCONFDIR}/audiofocusmanager)

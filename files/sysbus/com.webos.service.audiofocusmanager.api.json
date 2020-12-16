@@ -1,0 +1,9 @@
+{
+    "audiofocus.operation": [
+        "com.webos.service.audiofocusmanager/requestAudioControl",
+        "com.webos.service.audiofocusmanager/releaseAudioControl"
+    ],
+    "audiofocus.query": [
+        "com.webos.service.audiofocusmanager/getStatus"
+    ]
+}

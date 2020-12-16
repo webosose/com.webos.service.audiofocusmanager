@@ -26,8 +26,8 @@
 
 #include "log.h"
 
-static const char* const logContextName = "AudioController";
-static const char* const logPrefix= "[AC]";
+static const char* const logContextName = "AudioFocusManager";
+static const char* const logPrefix= "[AF]";
 
 static GMainLoop *mainLoop = NULL;
 AudioController *audioControllerService = NULL;

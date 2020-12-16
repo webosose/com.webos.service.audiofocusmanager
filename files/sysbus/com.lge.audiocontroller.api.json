@@ -1,7 +1,0 @@
-{
-    "media": [
-        "com.lge.audiocontroller/requestAudioControl",
-        "com.lge.audiocontroller/releaseAudioControl",
-        "com.lge.audiocontroller/getStatus"
-    ]
-}

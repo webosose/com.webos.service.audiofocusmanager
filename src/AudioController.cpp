@@ -113,9 +113,9 @@ bool AudioController::init(GMainLoop *mainLoop)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"init");
 
-    if(audioServiceRegister("com.lge.audiocontroller", mainLoop, &mServiceHandle) == false)
+    if(audioServiceRegister("com.webos.service.audiofocusmanager", mainLoop, &mServiceHandle) == false)
     {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "com.lge.audiocontroller service registration failed");
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "com.webos.service.audiofocusmanager service registration failed");
         return false;
     }
 

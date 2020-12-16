@@ -1,0 +1,7 @@
+start on lsm-ready
+
+respawn
+
+script
+        exec @WEBOS_INSTALL_SBINDIR@/audiofocusmanager
+end script

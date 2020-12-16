@@ -1,4 +1,0 @@
-[D-BUS Service]
-Name=com.lge.audiocontroller
-Exec=@WEBOS_INSTALL_SBINDIR@/audiocontroller
-Type=static

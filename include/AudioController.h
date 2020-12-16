@@ -27,10 +27,8 @@
 #include "common.h"
 
 #define REQUEST_TYPE_POLICY_CONFIG "audiofocuspolicy.json"
-#define CONFIG_DIR_PATH "/etc/palm/audiocontroller"
-
 #define AC_API_GET_STATUS "/getStatus"
-
+#define CONFIG_DIR_PATH "/etc/palm/audiofocusmanager"
 #define AC_ERR_CODE_INVALID_SCHEMA (1)
 #define AC_ERR_CODE_UNKNOWN_REQUEST (2)
 #define AC_ERR_CODE_INTERNAL (3)
