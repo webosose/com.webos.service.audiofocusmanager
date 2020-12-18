@@ -19,6 +19,11 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <lunaservice.h>
+#include <map>
+#include <string>
+#include <list>
+
 namespace common {
     enum class RequestType {
         INVALID = -1,
@@ -31,5 +36,42 @@ namespace common {
         MUTE_VOICE
     };
 }
+
+struct RequestTypePolicyInfo
+{
+    common::RequestType request {common::RequestType::INVALID};
+    int priority {-1};
+    std::string type;
+};
+struct AppInfo
+{
+    std::string appId;
+    common::RequestType request;
+};
+struct SessionInfo
+{
+    std::list<AppInfo> activeAppList;
+    std::list<AppInfo> pausedAppList;
+    std::string sessionId;
+};
+
+using RequestPolicyInfoMap = std::map<common::RequestType, RequestTypePolicyInfo>;
+using MapRequestNameToType = std::map<std::string, common::RequestType>;
+using MapRequestTypeToName = std::map<common::RequestType, std::string>;
+using ItMapRequestNameToType = std::map<std::string, common::RequestType>::iterator;
+using SessionInfoMap = std::map<std::string, SessionInfo>;
+
+struct CLSError : public LSError
+{
+    CLSError()
+    {
+        LSErrorInit(this);
+    }
+    void Print(const char * where, int line, GLogLevelFlags logLevel = G_LOG_LEVEL_WARNING);
+    void Free()
+    {
+        LSErrorFree(this);
+    }
+};
 
 #endif

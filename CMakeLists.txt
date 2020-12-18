@@ -31,6 +31,7 @@ set(SRC
         ${PROJECT_SOURCE_DIR}/src/main.cpp
         ${PROJECT_SOURCE_DIR}/src/audioFocusManager.cpp
         ${PROJECT_SOURCE_DIR}/src/log.cpp
+        ${PROJECT_SOURCE_DIR}/src/utils.cpp
 )
 set(LIBRARIES
         ${GLIB2_LDFLAGS}

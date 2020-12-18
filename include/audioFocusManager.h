@@ -25,6 +25,13 @@
 #include <map>
 #include <glib.h>
 #include "common.h"
+#include <sys/time.h>
+#include <pbnjson.hpp>
+#include <lunaservice.h>
+#include <sstream>
+#include "log.h"
+
+LSHandle *GetLSService();
 
 #define REQUEST_TYPE_POLICY_CONFIG "audiofocuspolicy.json"
 #define AF_API_GET_STATUS "/getStatus"
@@ -41,10 +48,6 @@
         return false; \
     }                 \
     } while (0)
-
-struct LSHandle;
-struct LSMessage;
-struct LSPalmService;
 
 class AudioFocusManager
 {
@@ -71,33 +74,10 @@ public:
     bool signalTermCaught();
 
     void LSErrorPrintAndFree(LSError *ptrLSError);
-    bool audioServiceRegister(std::string serviceName, GMainLoop *mainLoop, LSHandle **mServiceHandle);
+    bool audioFunctionsRegister(std::string srvcname, GMainLoop *mainLoop, LSHandle *msvcHandle);
     static LSHandle *mServiceHandle;
 
 private:
-
-    struct RequestTypePolicyInfo
-    {
-        common::RequestType request {common::RequestType::INVALID};
-        int priority {-1};
-        std::string type;
-    };
-    struct AppInfo
-    {
-        std::string appId;
-        common::RequestType request;
-    };
-    struct SessionInfo
-    {
-        std::list<AppInfo> activeAppList;
-        std::list<AppInfo> pausedAppList;
-        std::string sessionId;
-    };
-    using RequestPolicyInfoMap = std::map<common::RequestType, RequestTypePolicyInfo>;
-    using MapRequestNameToType = std::map<std::string, common::RequestType>;
-    using MapRequestTypeToName = std::map<common::RequestType, std::string>;
-    using ItMapRequestNameToType = std::map<std::string, common::RequestType>::iterator;
-    using SessionInfoMap = std::map<std::string, SessionInfo>;
 
     RequestPolicyInfoMap mAFRequestPolicyInfo;
     MapRequestNameToType mRequestNameToType;

@@ -16,14 +16,6 @@
 *
 * LICENSE@@@ */
 
-
-#include <sys/time.h>
-#include <pbnjson.hpp>
-#include <glib.h>
-#include <lunaservice.h>
-#include <map>
-#include <sstream>
-#include "log.h"
 #include <audioFocusManager.h>
 
 const std::string requestAudioControlschema      =  "{\
@@ -113,7 +105,7 @@ bool AudioFocusManager::init(GMainLoop *mainLoop)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"init");
 
-    if(audioServiceRegister("com.webos.service.audiofocusmanager", mainLoop, &mServiceHandle) == false)
+    if(audioFunctionsRegister("com.webos.service.audiofocusmanager", mainLoop, GetLSService()) == false)
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "com.webos.service.audiofocusmanager service registration failed");
         return false;
@@ -232,23 +224,17 @@ Functionality of this method:
 ->Registers the service with lunabus.
 ->Registers the methods with lunabus as public methods.
 */
-bool AudioFocusManager::audioServiceRegister(std::string serviceName, GMainLoop *mainLoop, LSHandle **mServiceHandle)
+bool AudioFocusManager::audioFunctionsRegister(std::string serviceName, GMainLoop *mainLoop, LSHandle *mServiceHandle)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"audioServiceRegister");
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"audioFunctionsRegister");
     bool bRetVal;
     LSError mLSError;
     LSErrorInit(&mLSError);
-    //Register palm service
-    bRetVal = LSRegister(serviceName.c_str(), mServiceHandle, &mLSError);
-    LSERROR_CHECK_AND_PRINT(bRetVal);
-    //Gmain attach
-    bRetVal = LSGmainAttach(*mServiceHandle, mainLoop, &mLSError);
-    LSERROR_CHECK_AND_PRINT(bRetVal);
     // add root category
-    bRetVal = LSRegisterCategory (*mServiceHandle, "/",
+    bRetVal = LSRegisterCategory (mServiceHandle, "/",
                                  rootMethod, NULL, NULL, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal);
-    if (!LSCategorySetData(*mServiceHandle, "/", this, &mLSError))
+    if (!LSCategorySetData(mServiceHandle, "/", this, &mLSError))
     LSERROR_CHECK_AND_PRINT(bRetVal);
     return true;
 }
@@ -912,12 +898,8 @@ void AudioFocusManager::broadcastStatusToSubscribers()
             reply.c_str());
     //TODO: This is deprecated method for accessing LsHandle.
     //Once the entire LS subscription mechanism is updated for the new API sets this also will be upgraded.
-    LSHandle *shHandle = mServiceHandle;
-    if (!shHandle)
-    {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscriber:: failed to get lsHandle");
-    }
-    if (!LSSubscriptionReply(shHandle, AF_API_GET_STATUS, reply.c_str(), &lserror))
+
+    if (!LSSubscriptionReply(GetLSService(), AF_API_GET_STATUS, reply.c_str(), &lserror))
     {
         LSErrorPrintAndFree(&lserror);
     }
@@ -933,13 +915,11 @@ bool AudioFocusManager::signalToApp(const std::string& applicationId, const std:
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"signalToApp");
     //TODO: Implement LS Message
     return true;
-    LSHandle *serviceHandlePrivate = NULL;
 
-    if(subscriptionUtility(applicationId, mServiceHandle, 's', signalMessage))
+    if(subscriptionUtility(applicationId, GetLSService(), 's', signalMessage))
     {
         return true;
     }
-
     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"signalToApp:failed");
     return false;
 }
@@ -1071,7 +1051,7 @@ bool AudioFocusManager::unsubscribingApp(const std::string& applicationId)
     return true;
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"unsubscribingApp: %s", applicationId.c_str());
 
-    if(subscriptionUtility(applicationId, mServiceHandle, 'r', ""))
+    if(subscriptionUtility(applicationId, GetLSService(), 'r', ""))
     {
         return true;
     }
@@ -1087,9 +1067,8 @@ Functionality of this method:
 bool AudioFocusManager::checkSubscription(const std::string& applicationId)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkSubscription: %s", applicationId.c_str());
-    LSHandle *serviceHandlePrivate = NULL;
 
-    if(subscriptionUtility(applicationId, mServiceHandle, 'c', ""))
+    if(subscriptionUtility(applicationId, GetLSService(), 'c', ""))
     {
         return true;
     }
@@ -1117,7 +1096,7 @@ Functionality of this method:
 */
 bool AudioFocusManager::signalTermCaught()
 {
-    broadcastLostToAll(mServiceHandle);
+    broadcastLostToAll(GetLSService());
     return true;
 }
 

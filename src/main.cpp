@@ -23,6 +23,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sstream>
+#include "common.h"
 
 #include "log.h"
 
@@ -30,7 +31,41 @@ static const char* const logContextName = "AudioFocusManager";
 static const char* const logPrefix= "[AF]";
 
 static GMainLoop *mainLoop = NULL;
-AudioFocusManager *AudioFocusManagerService = NULL;
+static LSHandle *gServiceHandle = NULL;
+
+//return palmservice handle of "com.webos.service.audio"
+LSHandle *
+GetLSService()
+{
+    return gServiceHandle;
+}
+
+/*
+Functionality of this method:
+->Registers the service with lunabus.
+->Registers the methods with lunabus as public methods.
+*/
+bool audioServiceRegister(std::string srvcname, GMainLoop *mainLoop, LSHandle **msvcHandle)
+{
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"audioServiceRegister");
+    bool bRetVal;
+    CLSError mLSError;
+    //Register palm service
+    if(!LSRegister(srvcname.c_str(), msvcHandle, &mLSError))
+    {
+        mLSError.Print(__FUNCTION__, __LINE__, G_LOG_LEVEL_CRITICAL);
+        return false ;
+    }
+    //Gmain attach
+    if(!LSGmainAttach(*msvcHandle, mainLoop, &mLSError))
+    {
+        mLSError.Print(__FUNCTION__, __LINE__, G_LOG_LEVEL_CRITICAL);
+        return false ;
+    }
+    return true;
+}
+
+AudioFocusManager *audioControllerService = NULL;
 
 void signalHandler(int signal)
 {
@@ -48,7 +83,7 @@ void signalHandler(int signal)
 void exit_proc(void)
 {
     //TODO delete audiofocus manager object
-    PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT, "deleted audioController object");
+    PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT, "deleted AudioFocusManager object");
 }
 
 int main(int argc, char *argv[])
@@ -79,20 +114,18 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    AudioFocusManagerService = AudioFocusManager::getInstance();
-
-    if(NULL == AudioFocusManagerService)
+    if(false == audioServiceRegister("com.webos.service.audiofocusmanager", mainLoop, &gServiceHandle))
+    {
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Failed to set Register service!");
+        return 0;
+    }
+    audioControllerService = AudioFocusManager::getInstance();
+    if(audioControllerService->init(mainLoop) == false)
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "getInstance failed: Failed to initialize the object!");
         g_main_loop_unref(mainLoop);
-        return -1;
-    }
-
-    if(AudioFocusManagerService->init(mainLoop) == false)
-    {
-        g_main_loop_unref(mainLoop);
-        delete AudioFocusManagerService;
-        AudioFocusManagerService = NULL;
+        delete audioControllerService;
+        audioControllerService = NULL;
         return -1;
     }
 
@@ -102,7 +135,7 @@ int main(int argc, char *argv[])
     LSError lserror;
     LSErrorInit(&lserror);
 
-    if(!LSUnregister(AudioFocusManager::mServiceHandle, &lserror))
+    if(!LSUnregister(GetLSService(), &lserror))
     {
         LSErrorFree(&lserror);
     }
