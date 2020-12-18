@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     LSError lserror;
     LSErrorInit(&lserror);
 
-    if(!LSUnregisterPalmService(AudioController::mServiceHandle, &lserror))
+    if(!LSUnregister(AudioController::mServiceHandle, &lserror))
     {
         LSErrorFree(&lserror);
     }

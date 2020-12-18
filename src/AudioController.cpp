@@ -54,7 +54,7 @@ const std::string getStatusschema                =  "{\
                                        }\
                                     }";
 
-LSPalmService *AudioController::mServiceHandle;
+LSHandle *AudioController::mServiceHandle;
 
 LSMethod AudioController::rootMethod[] = {
     {"requestAudioControl", AudioController::_requestAudioControl},
@@ -175,7 +175,7 @@ bool AudioController::loadRequestPolicyJsonConfig()
             pbnjson::JSchema::AllSchema());
     if (!fileJsonRequestPolicyConfig.isValid() || !fileJsonRequestPolicyConfig.isObject())
     {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "Failed to parse json config file, using defaults. File: %s", jsonFilePath.str());
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "Failed to parse json config file, using defaults. File: %s", jsonFilePath.str().c_str());
         return false;
     }
 
@@ -232,20 +232,23 @@ Functionality of this method:
 ->Registers the service with lunabus.
 ->Registers the methods with lunabus as public methods.
 */
-bool AudioController::audioServiceRegister(char *srvcname, GMainLoop *mainLoop, LSPalmService **msvcHandle)
+bool AudioController::audioServiceRegister(std::string serviceName, GMainLoop *mainLoop, LSHandle **mServiceHandle)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"audioServiceRegister");
     bool bRetVal;
     LSError mLSError;
     LSErrorInit(&mLSError);
     //Register palm service
-    bRetVal = LSRegisterPalmService(srvcname, msvcHandle, &mLSError);
+    bRetVal = LSRegister(serviceName.c_str(), mServiceHandle, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal);
     //Gmain attach
-    bRetVal = LSGmainAttachPalmService(*msvcHandle, mainLoop, &mLSError);
+    bRetVal = LSGmainAttach(*mServiceHandle, mainLoop, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal);
     // add root category
-    bRetVal = LSPalmServiceRegisterCategory(*msvcHandle, "/", rootMethod, NULL, NULL, this, &mLSError);
+    bRetVal = LSRegisterCategory (*mServiceHandle, "/",
+                                 rootMethod, NULL, NULL, &mLSError);
+    LSERROR_CHECK_AND_PRINT(bRetVal);
+    if (!LSCategorySetData(*mServiceHandle, "/", this, &mLSError))
     LSERROR_CHECK_AND_PRINT(bRetVal);
     return true;
 }
@@ -775,7 +778,7 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
  */
 void AudioController::updatePausedAppStatus(SessionInfo& sessionInfo, common::RequestType removedRequest)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updatePausedAppStatus: Request Type: %s", mRequestTypeToName[removedRequest]);
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updatePausedAppStatus: Request Type: %s", mRequestTypeToName[removedRequest].c_str());
 
     auto requestInfoIt = mACRequestPolicyInfo.find(removedRequest);
     if(requestInfoIt == mACRequestPolicyInfo.end())
@@ -909,15 +912,10 @@ void AudioController::broadcastStatusToSubscribers()
             reply.c_str());
     //TODO: This is deprecated method for accessing LsHandle.
     //Once the entire LS subscription mechanism is updated for the new API sets this also will be upgraded.
-    LSHandle *shHandle = LSPalmServiceGetPrivateConnection(mServiceHandle);
+    LSHandle *shHandle = mServiceHandle;
     if (!shHandle)
     {
-        shHandle = LSPalmServiceGetPublicConnection(mServiceHandle);
-        if (!shHandle)
-        {
-            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscriber:: failed to get lsHandle");
-            return;
-        }
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscriber:: failed to get lsHandle");
     }
     if (!LSSubscriptionReply(shHandle, AC_API_GET_STATUS, reply.c_str(), &lserror))
     {
@@ -936,25 +934,10 @@ bool AudioController::signalToApp(const std::string& applicationId, const std::s
     //TODO: Implement LS Message
     return true;
     LSHandle *serviceHandlePrivate = NULL;
-    serviceHandlePrivate = LSPalmServiceGetPrivateConnection(mServiceHandle);
 
-    if(serviceHandlePrivate)
+    if(subscriptionUtility(applicationId, mServiceHandle, 's', signalMessage))
     {
-        if(subscriptionUtility(applicationId, serviceHandlePrivate, 's', signalMessage))
-        {
-            return true;
-        }
-    }
-
-    LSHandle *serviceHandlePublic = NULL;
-    serviceHandlePublic = LSPalmServiceGetPublicConnection(mServiceHandle);
-
-    if(serviceHandlePublic)
-    {
-        if(subscriptionUtility(applicationId, serviceHandlePublic, 's', signalMessage))
-        {
-            return true;
-        }
+        return true;
     }
 
     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"signalToApp:failed");
@@ -1087,26 +1070,10 @@ bool AudioController::unsubscribingApp(const std::string& applicationId)
     //TODO:Implement LS subscription
     return true;
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"unsubscribingApp: %s", applicationId.c_str());
-    LSHandle *serviceHandlePrivate = NULL;
-    serviceHandlePrivate = LSPalmServiceGetPrivateConnection(mServiceHandle);
 
-    if(serviceHandlePrivate)
+    if(subscriptionUtility(applicationId, mServiceHandle, 'r', ""))
     {
-        if(subscriptionUtility(applicationId, serviceHandlePrivate, 'r', ""))
-        {
-            return true;
-        }
-    }
-
-    LSHandle *serviceHandlePublic = NULL;
-    serviceHandlePublic = LSPalmServiceGetPublicConnection(mServiceHandle);
-
-    if(serviceHandlePublic)
-    {
-        if(subscriptionUtility(applicationId, serviceHandlePublic, 'r', ""))
-        {
-            return true;
-        }
+        return true;
     }
 
     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"unsubscribingApp: failed in LSSubscriptionAcquire");
@@ -1121,25 +1088,10 @@ bool AudioController::checkSubscription(const std::string& applicationId)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkSubscription: %s", applicationId.c_str());
     LSHandle *serviceHandlePrivate = NULL;
-    serviceHandlePrivate = LSPalmServiceGetPrivateConnection(mServiceHandle);
 
-    if(serviceHandlePrivate)
+    if(subscriptionUtility(applicationId, mServiceHandle, 'c', ""))
     {
-        if(subscriptionUtility(applicationId, serviceHandlePrivate, 'c', ""))
-        {
-            return true;
-        }
-    }
-
-    LSHandle *serviceHandlePublic = NULL;
-    serviceHandlePublic = LSPalmServiceGetPublicConnection(mServiceHandle);
-
-    if(serviceHandlePublic)
-    {
-        if(subscriptionUtility(applicationId, serviceHandlePublic, 'c', ""))
-        {
-            return true;
-        }
+        return true;
     }
 
     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"checkSubscription: failed in LSSubscriptionAcquire %s", applicationId.c_str());
@@ -1165,22 +1117,7 @@ Functionality of this method:
 */
 bool AudioController::signalTermCaught()
 {
-    LSHandle *serviceHandlePrivate = NULL;
-    serviceHandlePrivate = LSPalmServiceGetPrivateConnection(mServiceHandle);
-
-    if(serviceHandlePrivate)
-    {
-        broadcastLostToAll(serviceHandlePrivate);
-    }
-
-    LSHandle *serviceHandlePublic = NULL;
-    serviceHandlePublic = LSPalmServiceGetPublicConnection(mServiceHandle);
-
-    if(serviceHandlePublic)
-    {
-        broadcastLostToAll(serviceHandlePublic);
-    }
-
+    broadcastLostToAll(mServiceHandle);
     return true;
 }
 

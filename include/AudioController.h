@@ -71,8 +71,8 @@ public:
     bool signalTermCaught();
 
     void LSErrorPrintAndFree(LSError *ptrLSError);
-    bool audioServiceRegister(char *srvcname, GMainLoop *mainLoop, LSPalmService **msvcHandle);
-    static LSPalmService *mServiceHandle;
+    bool audioServiceRegister(std::string serviceName, GMainLoop *mainLoop, LSHandle **mServiceHandle);
+    static LSHandle *mServiceHandle;
 
 private:
 
