@@ -24,7 +24,7 @@
 #include <map>
 #include <sstream>
 #include "log.h"
-#include <AudioController.h>
+#include <audioFocusManager.h>
 
 const std::string requestAudioControlschema      =  "{\
                                      \"title\":\"requestAudioControl schema\",\
@@ -54,53 +54,53 @@ const std::string getStatusschema                =  "{\
                                        }\
                                     }";
 
-LSHandle *AudioController::mServiceHandle;
+LSHandle *AudioFocusManager::mServiceHandle;
 
-LSMethod AudioController::rootMethod[] = {
-    {"requestAudioControl", AudioController::_requestAudioControl},
-    {"releaseAudioControl", AudioController::_releaseAudioControl},
-    {"getStatus", AudioController::_getStatus},
+LSMethod AudioFocusManager::rootMethod[] = {
+    {"requestAudioControl", AudioFocusManager::_requestAudioControl},
+    {"releaseAudioControl", AudioFocusManager::_releaseAudioControl},
+    {"getStatus", AudioFocusManager::_getStatus},
     {0, 0}
 };
 
-AudioController *AudioController::ACService = NULL;
+AudioFocusManager *AudioFocusManager::AFService = NULL;
 
-AudioController::AudioController()
+AudioFocusManager::AudioFocusManager()
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "AudioController Constructor invoked");
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "AudioFocusManager Constructor invoked");
 }
 
 /*
 Functionality of this method:
-->This function will create the object for audiocontroller if not present and returns the pointer.
+->This function will create the object for AudioFocusManager if not present and returns the pointer.
 ->If the object is already created then it will just return the pointer.
 */
-AudioController *AudioController::getInstance()
+AudioFocusManager *AudioFocusManager::getInstance()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "getInstance");
-    if(NULL == ACService)
+    if(NULL == AFService)
     {
-        ACService = new(std::nothrow) AudioController();
-        return ACService;
+        AFService = new(std::nothrow) AudioFocusManager();
+        return AFService;
     }
     else
     {
-        return ACService;
+        return AFService;
     }
 }
 
 /*
 Functionality of this method:
-->This function will delete the object for audiocontroller if present.
+->This function will delete the object for AudioFocusManager if present.
 ->If the object is not present then it will do nothing.
 */
-void AudioController::deleteInstance()
+void AudioFocusManager::deleteInstance()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "deleteInstance");
-    if(ACService)
+    if(AFService)
     {
-        delete ACService;
-        ACService = NULL;
+        delete AFService;
+        AFService = NULL;
     }
     return;
 }
@@ -109,7 +109,7 @@ void AudioController::deleteInstance()
 Functionality of this method:
 ->Initializes the service registration.
 */
-bool AudioController::init(GMainLoop *mainLoop)
+bool AudioFocusManager::init(GMainLoop *mainLoop)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"init");
 
@@ -132,37 +132,37 @@ bool AudioController::init(GMainLoop *mainLoop)
     return true;
 }
 
-void AudioController::createMapRequestNametoType()
+void AudioFocusManager::createMapRequestNametoType()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "createMapRequestNametoType");
 
-    mRequestNameToType["ACREQUEST_GAIN"] = common::RequestType::GAIN;
-    mRequestNameToType["ACREQUEST_MUTE_LONG"] = common::RequestType::MUTE_LONG;
-    mRequestNameToType["ACREQUEST_MUTE_SHORT"] = common::RequestType::MUTE_SHORT;
-    mRequestNameToType["ACREQUEST_CALL"] = common::RequestType::CALL;
-    mRequestNameToType["ACREQUEST_VOICE"] = common::RequestType::MUTE_VOICE;
-    mRequestNameToType["ACREQUEST_MUTE_MUTUAL"] = common::RequestType::MUTE_MUTUAL;
-    mRequestNameToType["ACREQUEST_TRANSIENT"] = common::RequestType::TRANSIENT;
+    mRequestNameToType["AFREQUEST_GAIN"] = common::RequestType::GAIN;
+    mRequestNameToType["AFREQUEST_MUTE_LONG"] = common::RequestType::MUTE_LONG;
+    mRequestNameToType["AFREQUEST_MUTE_SHORT"] = common::RequestType::MUTE_SHORT;
+    mRequestNameToType["AFREQUEST_CALL"] = common::RequestType::CALL;
+    mRequestNameToType["AFREQUEST_VOICE"] = common::RequestType::MUTE_VOICE;
+    mRequestNameToType["AFREQUEST_MUTE_MUTUAL"] = common::RequestType::MUTE_MUTUAL;
+    mRequestNameToType["AFREQUEST_TRANSIENT"] = common::RequestType::TRANSIENT;
 }
 
-void AudioController::createMapRequestTypetoName()
+void AudioFocusManager::createMapRequestTypetoName()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "createMapRequestTypetoName");
 
-    mRequestTypeToName[common::RequestType::GAIN] = "ACREQUEST_GAIN";
-    mRequestTypeToName[common::RequestType::MUTE_LONG] = "ACREQUEST_MUTE_LONG";
-    mRequestTypeToName[common::RequestType::MUTE_SHORT] = "ACREQUEST_MUTE_SHORT";
-    mRequestTypeToName[common::RequestType::CALL] = "ACREQUEST_CALL";
-    mRequestTypeToName[common::RequestType::MUTE_VOICE] = "ACREQUEST_VOICE";
-    mRequestTypeToName[common::RequestType::MUTE_MUTUAL] = "ACREQUEST_MUTE_MUTUAL";
-    mRequestTypeToName[common::RequestType::TRANSIENT] = "ACREQUEST_TRANSIENT";
+    mRequestTypeToName[common::RequestType::GAIN] = "AFREQUEST_GAIN";
+    mRequestTypeToName[common::RequestType::MUTE_LONG] = "AFREQUEST_MUTE_LONG";
+    mRequestTypeToName[common::RequestType::MUTE_SHORT] = "AFREQUEST_MUTE_SHORT";
+    mRequestTypeToName[common::RequestType::CALL] = "AFREQUEST_CALL";
+    mRequestTypeToName[common::RequestType::MUTE_VOICE] = "AFREQUEST_VOICE";
+    mRequestTypeToName[common::RequestType::MUTE_MUTUAL] = "AFREQUEST_MUTE_MUTUAL";
+    mRequestTypeToName[common::RequestType::TRANSIENT] = "AFREQUEST_TRANSIENT";
 }
 
 /*
  * Functionality of this method:
  * ->Load the RequestPolicy JSON config and populate internal structure for request info
  */
-bool AudioController::loadRequestPolicyJsonConfig()
+bool AudioFocusManager::loadRequestPolicyJsonConfig()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"loadRequestPolicyJsonConfig");
 
@@ -210,16 +210,16 @@ bool AudioController::loadRequestPolicyJsonConfig()
         stPolicyInfo.priority = elements["priority"].asNumber<int>();
         if (elements["type"].asString(type) == CONV_OK)
             stPolicyInfo.type = type;
-        mACRequestPolicyInfo[stPolicyInfo.request] = stPolicyInfo;
+        mAFRequestPolicyInfo[stPolicyInfo.request] = stPolicyInfo;
     }
 
     return true;
 }
 
-void AudioController::printRequestPolicyJsonInfo()
+void AudioFocusManager::printRequestPolicyJsonInfo()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"printRequestPolicyJsonInfo");
-    for (const auto& it : mACRequestPolicyInfo)
+    for (const auto& it : mAFRequestPolicyInfo)
     {
         const RequestTypePolicyInfo& policyInfo = it.second;
         PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "RequestType: %s  Priority: %d Type: %s", mRequestTypeToName[policyInfo.request].c_str(), \
@@ -232,7 +232,7 @@ Functionality of this method:
 ->Registers the service with lunabus.
 ->Registers the methods with lunabus as public methods.
 */
-bool AudioController::audioServiceRegister(std::string serviceName, GMainLoop *mainLoop, LSHandle **mServiceHandle)
+bool AudioFocusManager::audioServiceRegister(std::string serviceName, GMainLoop *mainLoop, LSHandle **mServiceHandle)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"audioServiceRegister");
     bool bRetVal;
@@ -259,7 +259,7 @@ Functionality of this method:
 ->If resource is free, it will grant the resource to the requested application.
 ->If resource is not free, it invokes the appropriate method based on the request type.
 */
-bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void *data)
+bool AudioFocusManager::requestAudioControl(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"requestAudioControl");
 
@@ -269,7 +269,7 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
 
     if (!parser.parse(request_payload, inputSchema, NULL))
     {
-        if (!returnErrorText(sh, message, "Invalid schema", AC_ERR_CODE_INVALID_SCHEMA))
+        if (!returnErrorText(sh, message, "Invalid schema", AF_ERR_CODE_INVALID_SCHEMA))
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: Failed to sent error text for Invalid Schema");
         }
@@ -284,7 +284,7 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
     //TODO: Add validation logic for validation of session ID
     if (sessionId == "")
     {
-        if (!returnErrorText(sh, message, "sessionId cannot be empty", AC_ERR_CODE_INTERNAL))
+        if (!returnErrorText(sh, message, "sessionId cannot be empty", AF_ERR_CODE_INTERNAL))
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: Failed to sent error text for Internal Error \
                     due to empty sessionId");
@@ -298,7 +298,7 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
         appId = LSMessageGetSenderServiceName(message);
         if (appId == NULL)
         {
-            if (!returnErrorText(sh, message, "appId received as NULL", AC_ERR_CODE_INTERNAL))
+            if (!returnErrorText(sh, message, "appId received as NULL", AF_ERR_CODE_INTERNAL))
             {
                 PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: Failed to sent error text for Internal Error \
                         due to NULL appId");
@@ -316,7 +316,7 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
     }
     else
     {
-        if (!returnErrorText(sh, message, "Invalid Request Type", AC_ERR_CODE_UNKNOWN_REQUEST))
+        if (!returnErrorText(sh, message, "Invalid Request Type", AF_ERR_CODE_UNKNOWN_REQUEST))
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: Failed to sent error text for Invalid \
                     Request Type to %s", appId);
@@ -327,7 +327,7 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
 
     if (!subscription)
     {
-        if (!returnErrorText(sh, message, "Subscription should be true", AC_ERR_CODE_INTERNAL))
+        if (!returnErrorText(sh, message, "Subscription should be true", AF_ERR_CODE_INTERNAL))
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: Failed to sent error text for Internal Error \
                     due to incorrect subscription value to %s", appId);
@@ -347,9 +347,9 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
     if (!checkFeasibility(sessionId, requestType))
     {
         //Reply CANNOT_BE_GRANTED
-        if (!sendSignal(sh, message, "AC_CANNOTBEGRANTED", NULL))
+        if (!sendSignal(sh, message, "AF_CANNOTBEGRANTED", NULL))
         {
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: sendSignal failed : AC_CANNOTBEGRANTED");
+            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: sendSignal failed : AF_CANNOTBEGRANTED");
         }
 
         return true;
@@ -360,16 +360,16 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: updateCurrentAppStatus Failed");
     }
 
-    if (!sendSignal(sh, message, "AC_GRANTED", NULL))
+    if (!sendSignal(sh, message, "AF_GRANTED", NULL))
     {
-        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: sendSignal failed : AC_GRANTED");
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestAudioControl: sendSignal failed : AF_GRANTED");
         //TODO: Add failover steps, update paused list if needed
         return true;
     }
 
     if (LSMessageIsSubscription(message))
     {
-        LSSubscriptionAdd(sh, "ACSubscriptionlist", message, NULL);
+        LSSubscriptionAdd(sh, "AFSubscriptionlist", message, NULL);
     }
 
     updateSessionActiveAppList(sessionId, appId, requestType);
@@ -380,9 +380,9 @@ bool AudioController::requestAudioControl(LSHandle *sh, LSMessage *message, void
 /*
 Functionality of this method:
 ->Checks whether the incoming request is duplicate request or not.
-->If it is a duplicate request sends AC_GRANTEDALREADY event to the app.
+->If it is a duplicate request sends AF_GRANTEDALREADY event to the app.
 */
-bool AudioController::checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const std::string& sessionId, common::RequestType& requestType)
+bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const std::string& sessionId, common::RequestType& requestType)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready");
     auto it = mSessionInfoMap.find(sessionId);
@@ -399,7 +399,7 @@ bool AudioController::checkGrantedAlready(LSHandle *sh, LSMessage *message, std:
         if (itPaused->request == requestType && \
                 itPaused->appId == applicationId)
         {
-            if(!sendSignal(sh, message, "AC_GRANTEDALREADY", NULL))
+            if(!sendSignal(sh, message, "AF_GRANTEDALREADY", NULL))
             {
                 //unsubscribe the app
                 if (!unsubscribingApp(applicationId))
@@ -407,11 +407,11 @@ bool AudioController::checkGrantedAlready(LSHandle *sh, LSMessage *message, std:
                     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: unsubscribing failed for %s", applicationId.c_str());
                 }
                 sessionInfo.pausedAppList.erase(itPaused--);
-                PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: Failed to send AC_GRANTEDALREADY %s", applicationId.c_str());
+                PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: Failed to send AF_GRANTEDALREADY %s", applicationId.c_str());
                 return true;
 
             }
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AC_GRANTEDALREADY %s", applicationId.c_str());
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AF_GRANTEDALREADY %s", applicationId.c_str());
             return true;
         }
     }
@@ -422,7 +422,7 @@ bool AudioController::checkGrantedAlready(LSHandle *sh, LSMessage *message, std:
         if (itActive->request == requestType && \
                 itActive->appId == applicationId)
         {
-            if(!sendSignal(sh, message, "AC_GRANTEDALREADY", NULL))
+            if(!sendSignal(sh, message, "AF_GRANTEDALREADY", NULL))
             {
                 //unsubscribe the app
                 if (!unsubscribingApp(applicationId))
@@ -430,11 +430,11 @@ bool AudioController::checkGrantedAlready(LSHandle *sh, LSMessage *message, std:
                     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: unsubscribing failed for %s", applicationId.c_str());
                 }
                 sessionInfo.activeAppList.erase(itActive--);
-                PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: Failed to send AC_GRANTEDALREADY %s", applicationId.c_str());
+                PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: Failed to send AF_GRANTEDALREADY %s", applicationId.c_str());
                 return true;
 
             }
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AC_GRANTEDALREADY");
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AF_GRANTEDALREADY");
             return true;
         }
     }
@@ -445,11 +445,11 @@ bool AudioController::checkGrantedAlready(LSHandle *sh, LSMessage *message, std:
 
 /*Functionality of this method:
  * To check if active request types in the requesting session has any request which will not grant the new request type*/
-bool AudioController::checkFeasibility(const std::string& sessionId, common::RequestType newRequestType)
+bool AudioFocusManager::checkFeasibility(const std::string& sessionId, common::RequestType newRequestType)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility");
-    auto itNewrequestPolicy = mACRequestPolicyInfo.find(newRequestType);
-    if (itNewrequestPolicy == mACRequestPolicyInfo.end())
+    auto itNewrequestPolicy = mAFRequestPolicyInfo.find(newRequestType);
+    if (itNewrequestPolicy == mAFRequestPolicyInfo.end())
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New request ty[e policy cannot be found");
         return false;
@@ -468,8 +468,8 @@ bool AudioController::checkFeasibility(const std::string& sessionId, common::Req
     for (const auto& itActive : curSessionInfo.activeAppList)
     {
         common::RequestType activeRequest = itActive.request;
-        auto itActiveRequestPolicy = mACRequestPolicyInfo.find(activeRequest);
-        if (itActiveRequestPolicy == mACRequestPolicyInfo.end())
+        auto itActiveRequestPolicy = mAFRequestPolicyInfo.find(activeRequest);
+        if (itActiveRequestPolicy == mAFRequestPolicyInfo.end())
         {
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: Invalid request type entry. Skipping...");
             continue;
@@ -498,12 +498,12 @@ bool AudioController::checkFeasibility(const std::string& sessionId, common::Req
     return true;
 }
 
-bool AudioController::updateCurrentAppStatus(const std::string& sessionId, common::RequestType newRequest)
+bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, common::RequestType newRequest)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus");
 
-    auto itNewRequestPolicy = mACRequestPolicyInfo.find(newRequest);
-    if (itNewRequestPolicy == mACRequestPolicyInfo.end())
+    auto itNewRequestPolicy = mAFRequestPolicyInfo.find(newRequest);
+    if (itNewRequestPolicy == mAFRequestPolicyInfo.end())
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: New request policy cannot be found");
         return false;
@@ -523,8 +523,8 @@ bool AudioController::updateCurrentAppStatus(const std::string& sessionId, commo
     //Update active app list based on new request
     for (auto itActive = curSessionInfo.activeAppList.begin(); itActive != curSessionInfo.activeAppList.end(); itActive++)
     {
-        const auto& itActiveRequestpolicy = mACRequestPolicyInfo.find(itActive->request);
-        if (itActiveRequestpolicy == mACRequestPolicyInfo.end())
+        const auto& itActiveRequestpolicy = mAFRequestPolicyInfo.find(itActive->request);
+        if (itActiveRequestpolicy == mAFRequestPolicyInfo.end())
         {
             PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in active list for %s. Skipping", \
                     sessionId.c_str());
@@ -537,11 +537,11 @@ bool AudioController::updateCurrentAppStatus(const std::string& sessionId, commo
             if (newRequestPolicy.type == "short" && \
                     (activeRequestpolicy.type == "long" || activeRequestpolicy.type == "mix"))
             {
-                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AC_PAUSE to %s", \
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_PAUSE to %s", \
                         itActive->appId.c_str());
-                if (!signalToApp(itActive->appId, "AC_PAUSE"))
+                if (!signalToApp(itActive->appId, "AF_PAUSE"))
                 {
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AC_PAUSE to %s", \
+                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AF_PAUSE to %s", \
                             itActive->appId.c_str());
                     if (!unsubscribingApp(itActive->appId))
                     {
@@ -557,12 +557,12 @@ bool AudioController::updateCurrentAppStatus(const std::string& sessionId, commo
             }
             else if (newRequestPolicy.type != "mix")
             {
-                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AC_LOST to %s", \
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_LOST to %s", \
                         itActive->appId.c_str());
 
-                if (!signalToApp(itActive->appId, "AC_LOST"))
+                if (!signalToApp(itActive->appId, "AF_LOST"))
                 {
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AC_LOST to %s", \
+                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AF_LOST to %s", \
                             itActive->appId.c_str());
                 }
                 if (!unsubscribingApp(itActive->appId))
@@ -586,8 +586,8 @@ bool AudioController::updateCurrentAppStatus(const std::string& sessionId, commo
     //Update paused apps list based on new request
     for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
     {
-        const auto& itPausedRequestpolicy = mACRequestPolicyInfo.find(itPaused->request);
-        if (itPausedRequestpolicy == mACRequestPolicyInfo.end())
+        const auto& itPausedRequestpolicy = mAFRequestPolicyInfo.find(itPaused->request);
+        if (itPausedRequestpolicy == mAFRequestPolicyInfo.end())
         {
             PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in paused list for %s. Skipping", \
                     sessionId.c_str());
@@ -596,9 +596,9 @@ bool AudioController::updateCurrentAppStatus(const std::string& sessionId, commo
 
         if (newRequestPolicy.type == "long")
         {
-            if (!signalToApp(itPaused->appId, "AC_LOST"))
+            if (!signalToApp(itPaused->appId, "AF_LOST"))
             {
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AC_LOST to %s", \
+                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AF_LOST to %s", \
                             itPaused->appId.c_str());
                     if (!unsubscribingApp(itPaused->appId))
                     {
@@ -620,7 +620,7 @@ bool AudioController::updateCurrentAppStatus(const std::string& sessionId, commo
  * -> Update the session active app list if session already present
  *  ->Create new session Info and update active app list
  */
-void AudioController::updateSessionActiveAppList(const std::string& sessionId, const std::string appId, common::RequestType requestType)
+void AudioFocusManager::updateSessionActiveAppList(const std::string& sessionId, const std::string appId, common::RequestType requestType)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionAppList: sessionId: %s", sessionId.c_str());
     AppInfo newAppInfo;
@@ -646,11 +646,11 @@ void AudioController::updateSessionActiveAppList(const std::string& sessionId, c
 
 /*
 Functionality of this method:
-->Sends AC_LOST event to the current running application and unsubscribes it.
-->If sending AC_LOST event is fails, it will return AC_CANNOTBEGRANTED to the newly requesting app
+->Sends AF_LOST event to the current running application and unsubscribes it.
+->If sending AF_LOST event is fails, it will return AF_CANNOTBEGRANTED to the newly requesting app
   and will unsubscribe it.
 */
-bool AudioController::sendLostMessage()
+bool AudioFocusManager::sendLostMessage()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"sendLostMessage");
     return true;
@@ -658,11 +658,11 @@ bool AudioController::sendLostMessage()
 
 /*
 Functionality of this method:
-->Sends AC_PAUSE event to the current running application.
-->If sending AC_PAUSE event fails, it will return AC_CANNOTBEGRANTED to the newly requesting app
+->Sends AF_PAUSE event to the current running application.
+->If sending AF_PAUSE event fails, it will return AF_CANNOTBEGRANTED to the newly requesting app
   and will unsubscribe it.
 */
-bool AudioController::sendPauseMessage()
+bool AudioFocusManager::sendPauseMessage()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"sendPauseMessage");
     return true;
@@ -673,7 +673,7 @@ Functionality of this method:
 ->This will unsubscribe the app and removes its entry.
 ->Sends resume event to the application which is in paused state if there are any such applications.
 */
-bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void *data)
+bool AudioFocusManager::releaseAudioControl(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl");
     const char* payload = LSMessageGetPayload(message);
@@ -684,7 +684,7 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
 
     if (!parser.parse(payload, inputSchema, NULL))
     {
-        if (!returnErrorText(sh, message, "Invalid schema", AC_ERR_CODE_INVALID_SCHEMA))
+        if (!returnErrorText(sh, message, "Invalid schema", AF_ERR_CODE_INVALID_SCHEMA))
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Invalid Schema");
         }
@@ -700,7 +700,7 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
         appId = LSMessageGetSenderServiceName(message);
         if (appId == NULL)
         {
-            if (!returnErrorText(sh, message, "Internal error", AC_ERR_CODE_INTERNAL))
+            if (!returnErrorText(sh, message, "Internal error", AF_ERR_CODE_INTERNAL))
             {
                 PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Internal Error \
                         due to NULL appId to %s", appId);
@@ -714,7 +714,7 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
     if (itSession == mSessionInfoMap.end())
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl: Session ID cannot be find");
-        if (!returnErrorText(sh, message, "Session Id not found", AC_ERR_CODE_INTERNAL))
+        if (!returnErrorText(sh, message, "Session Id not found", AF_ERR_CODE_INTERNAL))
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Internal Error \
                     due to session ID not found");
@@ -735,9 +735,9 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
                 PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: unsubscribingApp failed for %s", appId);
             }
             curSessionInfo.pausedAppList.erase(itPaused--);
-            if (!sendSignal(sh, message, "AC_SUCCESSFULLY_RELEASED", NULL))
+            if (!sendSignal(sh, message, "AF_SUCCESSFULLY_RELEASED", NULL))
             {
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent message: AC_SUCCESSFULLY_RELEASED");
+                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent message: AF_SUCCESSFULLY_RELEASED");
             }
             return true;
         }
@@ -755,9 +755,9 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
             }
             curSessionInfo.activeAppList.erase(itActive--);
             updatePausedAppStatus(curSessionInfo, itActive->request);
-            if (!sendSignal(sh, message, "AC_SUCCESSFULLY_RELEASED", NULL))
+            if (!sendSignal(sh, message, "AF_SUCCESSFULLY_RELEASED", NULL))
             {
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent message: AC_SUCCESSFULLY_RELEASED");
+                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent message: AF_SUCCESSFULLY_RELEASED");
             }
             return true;
         }
@@ -765,7 +765,7 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
 
     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseAudioControl: appId: %s cannot be found in session: %s" , \
             appId, curSessionInfo.sessionId.c_str());
-    if (!returnErrorText(sh, message, "Application not registered", AC_ERR_CODE_INTERNAL))
+    if (!returnErrorText(sh, message, "Application not registered", AF_ERR_CODE_INTERNAL))
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseAudioControl: Failed to sent error text for Internal Error: \
                 application not registered");
@@ -776,12 +776,12 @@ bool AudioController::releaseAudioControl(LSHandle *sh, LSMessage *message, void
 /*Functionality of this method:
  * To update the paused app list in the session based on the removed request type policy
  */
-void AudioController::updatePausedAppStatus(SessionInfo& sessionInfo, common::RequestType removedRequest)
+void AudioFocusManager::updatePausedAppStatus(SessionInfo& sessionInfo, common::RequestType removedRequest)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updatePausedAppStatus: Request Type: %s", mRequestTypeToName[removedRequest].c_str());
 
-    auto requestInfoIt = mACRequestPolicyInfo.find(removedRequest);
-    if(requestInfoIt == mACRequestPolicyInfo.end())
+    auto requestInfoIt = mAFRequestPolicyInfo.find(removedRequest);
+    if(requestInfoIt == mAFRequestPolicyInfo.end())
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type");
         return;
@@ -794,8 +794,8 @@ void AudioController::updatePausedAppStatus(SessionInfo& sessionInfo, common::Re
 
     for( auto activeApp : sessionInfo.activeAppList)
     {
-        auto activeRequestInfo = mACRequestPolicyInfo.find(activeApp.request);
-        if (activeRequestInfo == mACRequestPolicyInfo.end())
+        auto activeRequestInfo = mAFRequestPolicyInfo.find(activeApp.request);
+        if (activeRequestInfo == mAFRequestPolicyInfo.end())
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type in active app");
             continue;
@@ -816,9 +816,9 @@ void AudioController::updatePausedAppStatus(SessionInfo& sessionInfo, common::Re
 }
 /*
 Functionality of this method:
-->This will return the current status of granted request types in audiocontroller for each session
+->This will return the current status of granted request types in AudioFocusManager for each session
 */
-bool AudioController::getStatus(LSHandle *sh, LSMessage *message, void *data)
+bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus");
     const char* payload = LSMessageGetPayload(message);
@@ -830,7 +830,7 @@ bool AudioController::getStatus(LSHandle *sh, LSMessage *message, void *data)
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
     if (!parser.parse(payload, inputSchema, NULL))
     {
-        if (!returnErrorText(sh, message, "Invalid schema", AC_ERR_CODE_INVALID_SCHEMA))
+        if (!returnErrorText(sh, message, "Invalid schema", AF_ERR_CODE_INVALID_SCHEMA))
         {
             PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "getStatus: Failed to sent error text for Invalid Schema");
         }
@@ -849,7 +849,7 @@ bool AudioController::getStatus(LSHandle *sh, LSMessage *message, void *data)
     }
 
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
-    if (!sendSignal(sh, message, getAudioControllerStatusPayload(), NULL))
+    if (!sendSignal(sh, message, getAudioFocusManagerStatusPayload(), NULL))
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"getStatus: sendSignal failed");
 
@@ -861,9 +861,9 @@ bool AudioController::getStatus(LSHandle *sh, LSMessage *message, void *data)
 /*Functionality of this method
  * TO get the JSON payload for getStatus response in string format
  */
-std::string AudioController::getAudioControllerStatusPayload()
+std::string AudioFocusManager::getAudioFocusManagerStatusPayload()
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getAudioControllerStatusPayload");
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getAudioFocusManagerStatusPayload");
 
     pbnjson::JValue audioFocusStatus = pbnjson::JObject();
     pbnjson::JArray sessionsList = pbnjson::JArray();
@@ -882,7 +882,7 @@ std::string AudioController::getAudioControllerStatusPayload()
             activeApp.put("requestType", mRequestTypeToName[activeAppInfo.request]);
             activeAppArray.append(activeApp);
         }
-        curSession.put("activeRequests",activeAppArray);
+        curSession.put("AFactiveRequests",activeAppArray);
 
         for (auto pausedAppInfo : sessionInfo.pausedAppList)
         {
@@ -901,13 +901,13 @@ std::string AudioController::getAudioControllerStatusPayload()
 
 /*
  * Functionality of this method:
- * Notigy /getStatus subscribers on the current audiocontroller status
+ * Notigy /getStatus subscribers on the current AudioFocusManager status
  */
-void AudioController::broadcastStatusToSubscribers()
+void AudioFocusManager::broadcastStatusToSubscribers()
 {
     LSError lserror;
     LSErrorInit(&lserror);
-    std::string reply = getAudioControllerStatusPayload();
+    std::string reply = getAudioFocusManagerStatusPayload();
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscribers: reply message to subscriber: %s", \
             reply.c_str());
     //TODO: This is deprecated method for accessing LsHandle.
@@ -917,7 +917,7 @@ void AudioController::broadcastStatusToSubscribers()
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscriber:: failed to get lsHandle");
     }
-    if (!LSSubscriptionReply(shHandle, AC_API_GET_STATUS, reply.c_str(), &lserror))
+    if (!LSSubscriptionReply(shHandle, AF_API_GET_STATUS, reply.c_str(), &lserror))
     {
         LSErrorPrintAndFree(&lserror);
     }
@@ -925,10 +925,10 @@ void AudioController::broadcastStatusToSubscribers()
 
 /*
 Functionality of this method:
-->It will send events like AC_LOST/AC_PAUSE to the current running application.
-->It will send resume(AC_GRANTED) event to the paused application.
+->It will send events like AF_LOST/AF_PAUSE to the current running application.
+->It will send resume(AF_GRANTED) event to the paused application.
 */
-bool AudioController::signalToApp(const std::string& applicationId, const std::string& signalMessage)
+bool AudioFocusManager::signalToApp(const std::string& applicationId, const std::string& signalMessage)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"signalToApp");
     //TODO: Implement LS Message
@@ -948,13 +948,13 @@ bool AudioController::signalToApp(const std::string& applicationId, const std::s
 Functionality of this method:
 ->This is a utility function used for dealing with subscription list.
 ->Based on the operation received it does the following functionalities:-
-    operation 's' : Signals the corresponding application with the signalMessage(AC_LOST/AC_PAUSE/AC_GRANTED) passed to it.
-                    It will send events like AC_LOST/AC_PAUSE to the current running application.
-                    It will send resume(AC_GRANTED) event to the paused application.
+    operation 's' : Signals the corresponding application with the signalMessage(AF_LOST/AF_PAUSE/AF_GRANTED) passed to it.
+                    It will send events like AF_LOST/AF_PAUSE to the current running application.
+                    It will send resume(AF_GRANTED) event to the paused application.
     operation 'r' : Removes the subscription for the respective applicationId passed.
     operation 'c' : This is for checking whether the corresponding applicationId is subscribed or not.
 */
-bool AudioController::subscriptionUtility(const std::string& applicationId, LSHandle *serviceHandle, const char operation, const std::string& signalMessage)
+bool AudioFocusManager::subscriptionUtility(const std::string& applicationId, LSHandle *serviceHandle, const char operation, const std::string& signalMessage)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"subscriptionUtility: Operation: %c, appId: %s", operation, applicationId.c_str());
     std::string subscribed_appId;
@@ -963,7 +963,7 @@ bool AudioController::subscriptionUtility(const std::string& applicationId, LSHa
     bool retValAcquire = false,found = false;
     LSError lserror;
     LSErrorInit(&lserror);
-    retValAcquire = LSSubscriptionAcquire(serviceHandle, "ACSubscriptionlist", &iter, &lserror);
+    retValAcquire = LSSubscriptionAcquire(serviceHandle, "AFSubscriptionlist", &iter, &lserror);
 
     if(retValAcquire)
     {
@@ -1024,7 +1024,7 @@ bool AudioController::subscriptionUtility(const std::string& applicationId, LSHa
     }
 }
 
-bool AudioController::sendSignal(LSHandle *serviceHandle, LSMessage *iter_message, const std::string& signalMessage, LSError *lserror)
+bool AudioFocusManager::sendSignal(LSHandle *serviceHandle, LSMessage *iter_message, const std::string& signalMessage, LSError *lserror)
 {
     pbnjson::JValue jsonObject = pbnjson::Object();
     jsonObject.put("errorCode", 0);
@@ -1044,7 +1044,7 @@ bool AudioController::sendSignal(LSHandle *serviceHandle, LSMessage *iter_messag
 Functionality of this method:
 ->It will send error message to the applications.
 */
-bool AudioController::returnErrorText(LSHandle *sh, LSMessage *message, const std::string& errorText, int errorCode)
+bool AudioFocusManager::returnErrorText(LSHandle *sh, LSMessage *message, const std::string& errorText, int errorCode)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"returnErrorText: %s", errorText.c_str());
     pbnjson::JValue jsonObject = pbnjson::Object();
@@ -1065,7 +1065,7 @@ bool AudioController::returnErrorText(LSHandle *sh, LSMessage *message, const st
 Functionality of this method:
 ->This will Unsubscribe the application.
 */
-bool AudioController::unsubscribingApp(const std::string& applicationId)
+bool AudioFocusManager::unsubscribingApp(const std::string& applicationId)
 {
     //TODO:Implement LS subscription
     return true;
@@ -1084,7 +1084,7 @@ bool AudioController::unsubscribingApp(const std::string& applicationId)
 Functionality of this method:
 ->This will check whether the application is alive or not.
 */
-bool AudioController::checkSubscription(const std::string& applicationId)
+bool AudioFocusManager::checkSubscription(const std::string& applicationId)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkSubscription: %s", applicationId.c_str());
     LSHandle *serviceHandlePrivate = NULL;
@@ -1102,7 +1102,7 @@ bool AudioController::checkSubscription(const std::string& applicationId)
 Functionality of this method:
 ->Prints the error message.
 */
-void AudioController::LSErrorPrintAndFree(LSError *ptrLSError)
+void AudioFocusManager::LSErrorPrintAndFree(LSError *ptrLSError)
 {
     if(ptrLSError != NULL)
     {
@@ -1115,7 +1115,7 @@ void AudioController::LSErrorPrintAndFree(LSError *ptrLSError)
 Functionality of this method:
 ->This function is called when signal handlers are caught.
 */
-bool AudioController::signalTermCaught()
+bool AudioFocusManager::signalTermCaught()
 {
     broadcastLostToAll(mServiceHandle);
     return true;
@@ -1123,10 +1123,10 @@ bool AudioController::signalTermCaught()
 
 /*
 Functionality of this method:
-->This will send lost message (AC_LOST) to all the app(s) which is/are using the resource and also to the
+->This will send lost message (AF_LOST) to all the app(s) which is/are using the resource and also to the
   paused applications.
 */
-bool AudioController::broadcastLostToAll(LSHandle *serviceHandle)
+bool AudioFocusManager::broadcastLostToAll(LSHandle *serviceHandle)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastLostToAll");
     std::string subscribed_appId;
@@ -1135,14 +1135,14 @@ bool AudioController::broadcastLostToAll(LSHandle *serviceHandle)
     bool retValAcquire = false;
     LSError lserror;
     LSErrorInit(&lserror);
-    retValAcquire = LSSubscriptionAcquire(serviceHandle, "ACSubscriptionlist", &iter, &lserror);
+    retValAcquire = LSSubscriptionAcquire(serviceHandle, "AFSubscriptionlist", &iter, &lserror);
 
     if(retValAcquire)
     {
         pbnjson::JValue jsonObject = pbnjson::Object();
         jsonObject.put("errorCode", 0);
         jsonObject.put("returnValue", true);
-        jsonObject.put("result", "AC_LOST");
+        jsonObject.put("result", "AF_LOST");
 
         while(LSSubscriptionHasNext(iter))
         {
@@ -1157,7 +1157,7 @@ bool AudioController::broadcastLostToAll(LSHandle *serviceHandle)
                 PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"broadcastLostToAll: LSMessageReply Failed");
             }
 
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastLostToAll: AC_LOST sent to %s", subscribed_appId.c_str());
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastLostToAll: AF_LOST sent to %s", subscribed_appId.c_str());
             LSSubscriptionRemove(iter);
         }
 

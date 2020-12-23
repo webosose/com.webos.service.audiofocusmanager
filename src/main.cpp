@@ -14,7 +14,7 @@
 #include <iostream>
 #include <lunaservice.h>
 #include <glib.h>
-#include <AudioController.h>
+#include <audioFocusManager.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <cstdio>
@@ -30,17 +30,13 @@ static const char* const logContextName = "AudioFocusManager";
 static const char* const logPrefix= "[AF]";
 
 static GMainLoop *mainLoop = NULL;
-AudioController *audioControllerService = NULL;
+AudioFocusManager *AudioFocusManagerService = NULL;
 
 void signalHandler(int signal)
 {
     PM_LOG_WARNING(MSGID_INIT, INIT_KVCOUNT, "Signal Caught");
 
-    /*if(!(audioControllerService->signalTermCaught()))
-    {
-        PM_LOG_WARNING(MSGID_INIT, INIT_KVCOUNT, "subscription list is empty");
-    }*/
-
+    //TODO handle system signals
     if(mainLoop)
     {
         g_main_loop_quit(mainLoop);
@@ -51,7 +47,7 @@ void signalHandler(int signal)
 
 void exit_proc(void)
 {
-    //audioControllerService->deleteInstance();
+    //TODO delete audiofocus manager object
     PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT, "deleted audioController object");
 }
 
@@ -83,20 +79,20 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    audioControllerService = AudioController::getInstance();
+    AudioFocusManagerService = AudioFocusManager::getInstance();
 
-    if(NULL == audioControllerService)
+    if(NULL == AudioFocusManagerService)
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "getInstance failed: Failed to initialize the object!");
         g_main_loop_unref(mainLoop);
         return -1;
     }
 
-    if(audioControllerService->init(mainLoop) == false)
+    if(AudioFocusManagerService->init(mainLoop) == false)
     {
         g_main_loop_unref(mainLoop);
-        delete audioControllerService;
-        audioControllerService = NULL;
+        delete AudioFocusManagerService;
+        AudioFocusManagerService = NULL;
         return -1;
     }
 
@@ -106,7 +102,7 @@ int main(int argc, char *argv[])
     LSError lserror;
     LSErrorInit(&lserror);
 
-    if(!LSUnregister(AudioController::mServiceHandle, &lserror))
+    if(!LSUnregister(AudioFocusManager::mServiceHandle, &lserror))
     {
         LSErrorFree(&lserror);
     }

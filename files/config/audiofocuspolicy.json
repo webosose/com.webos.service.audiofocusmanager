@@ -1,11 +1,11 @@
 {
     "requestType": [
-                {"request": "ACREQUEST_CALL", "priority":1, "type":"short"},
-                {"request": "ACREQUEST_VOICE", "priority":2, "type":"long"},
-                {"request": "ACREQUEST_MUTE_LONG", "priority":3, "type":"mix"},
-                {"request": "ACREQUEST_MUTE_MUTUAL", "priority":4, "type":"short"},
-                {"request": "ACREQUEST_TRANSIENT", "priority":5, "type":"short"},
-                {"request": "ACREQUEST_MUTE_SHORT", "priority":6, "type":"short"},
-                {"request": "ACREQUEST_GAIN", "priority":7, "type":"long"}
+                {"request": "AFREQUEST_CALL", "priority":1, "type":"short"},
+                {"request": "AFREQUEST_VOICE", "priority":2, "type":"long"},
+                {"request": "AFREQUEST_MUTE_LONG", "priority":3, "type":"mix"},
+                {"request": "AFREQUEST_MUTE_MUTUAL", "priority":4, "type":"short"},
+                {"request": "AFREQUEST_TRANSIENT", "priority":5, "type":"short"},
+                {"request": "AFREQUEST_MUTE_SHORT", "priority":6, "type":"short"},
+                {"request": "AFREQUEST_GAIN", "priority":7, "type":"long"}
             ]
 }

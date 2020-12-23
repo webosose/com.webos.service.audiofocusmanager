@@ -16,8 +16,8 @@
 *
 * LICENSE@@@ */
 
-#ifndef AC_AUDIOCONTROLLER_H
-#define AC_AUDIOCONTROLLER_H
+#ifndef AudioFocusManager_H
+#define AudioFocusManager_H
 
 #include <string>
 #include <iostream>
@@ -27,11 +27,11 @@
 #include "common.h"
 
 #define REQUEST_TYPE_POLICY_CONFIG "audiofocuspolicy.json"
-#define AC_API_GET_STATUS "/getStatus"
+#define AF_API_GET_STATUS "/getStatus"
 #define CONFIG_DIR_PATH "/etc/palm/audiofocusmanager"
-#define AC_ERR_CODE_INVALID_SCHEMA (1)
-#define AC_ERR_CODE_UNKNOWN_REQUEST (2)
-#define AC_ERR_CODE_INTERNAL (3)
+#define AF_ERR_CODE_INVALID_SCHEMA (1)
+#define AF_ERR_CODE_UNKNOWN_REQUEST (2)
+#define AF_ERR_CODE_INTERNAL (3)
 
 #define LSERROR_CHECK_AND_PRINT(ret)\
     do {              \
@@ -46,27 +46,27 @@ struct LSHandle;
 struct LSMessage;
 struct LSPalmService;
 
-class AudioController
+class AudioFocusManager
 {
 public:
-    ~AudioController(){};
+    ~AudioFocusManager(){};
     bool init(GMainLoop *);
     static bool _requestAudioControl(LSHandle *sh, LSMessage *message, void *data)
     {
-        return ((AudioController *) data)->requestAudioControl(sh, message, NULL);
+        return ((AudioFocusManager *) data)->requestAudioControl(sh, message, NULL);
     }
 
     static bool _releaseAudioControl(LSHandle *sh, LSMessage *message, void *data)
     {
-        return ((AudioController *) data)->releaseAudioControl(sh, message, NULL);
+        return ((AudioFocusManager *) data)->releaseAudioControl(sh, message, NULL);
     }
 
     static bool _getStatus(LSHandle *sh, LSMessage *message, void *data)
     {
-        return ((AudioController *) data)->getStatus(sh, message, NULL);
+        return ((AudioFocusManager *) data)->getStatus(sh, message, NULL);
     }
 
-    static AudioController *getInstance();
+    static AudioFocusManager *getInstance();
     void deleteInstance();
     bool signalTermCaught();
 
@@ -99,21 +99,21 @@ private:
     using ItMapRequestNameToType = std::map<std::string, common::RequestType>::iterator;
     using SessionInfoMap = std::map<std::string, SessionInfo>;
 
-    RequestPolicyInfoMap mACRequestPolicyInfo;
+    RequestPolicyInfoMap mAFRequestPolicyInfo;
     MapRequestNameToType mRequestNameToType;
     MapRequestTypeToName mRequestTypeToName;
     SessionInfoMap mSessionInfoMap;
-    static AudioController *ACService;
+    static AudioFocusManager *AFService;
     static LSMethod rootMethod[];
 
-    AudioController();
+    AudioFocusManager();
 
     bool releaseAudioControl(LSHandle *sh, LSMessage *message, void *data);
     bool requestAudioControl(LSHandle *sh, LSMessage *message, void *data);
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
 
     void broadcastStatusToSubscribers();
-    std::string getAudioControllerStatusPayload();
+    std::string getAudioFocusManagerStatusPayload();
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
     void createMapRequestNametoType();

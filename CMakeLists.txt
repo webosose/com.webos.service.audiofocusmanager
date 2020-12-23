@@ -29,7 +29,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 set(LOCATION_SERVICE_NAME audiofocusmanager)
 set(SRC
         ${PROJECT_SOURCE_DIR}/src/main.cpp
-        ${PROJECT_SOURCE_DIR}/src/AudioController.cpp
+        ${PROJECT_SOURCE_DIR}/src/audioFocusManager.cpp
         ${PROJECT_SOURCE_DIR}/src/log.cpp
 )
 set(LIBRARIES
