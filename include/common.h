@@ -24,42 +24,26 @@
 #include <string>
 #include <list>
 
-namespace common {
-    enum class RequestType {
-        INVALID = -1,
-        GAIN,
-        MUTE_LONG,
-        MUTE_SHORT,
-        MUTE_MUTUAL,
-        CALL,
-        TRANSIENT,
-        MUTE_VOICE
-    };
-}
-
-struct RequestTypePolicyInfo
+typedef struct RequestTypePolicyInfo
 {
-    common::RequestType request {common::RequestType::INVALID};
     int priority {-1};
     std::string type;
-};
-struct AppInfo
+}REQUEST_TYPE_POLICY_INFO_T;
+
+typedef struct AppInfo
 {
     std::string appId;
-    common::RequestType request;
-};
-struct SessionInfo
-{
-    std::list<AppInfo> activeAppList;
-    std::list<AppInfo> pausedAppList;
-    std::string sessionId;
-};
+    std::string requestType;
+}APP_INFO_T;
 
-using RequestPolicyInfoMap = std::map<common::RequestType, RequestTypePolicyInfo>;
-using MapRequestNameToType = std::map<std::string, common::RequestType>;
-using MapRequestTypeToName = std::map<common::RequestType, std::string>;
-using ItMapRequestNameToType = std::map<std::string, common::RequestType>::iterator;
-using SessionInfoMap = std::map<std::string, SessionInfo>;
+typedef struct SessionInfo
+{
+    std::list<APP_INFO_T> activeAppList;
+    std::list<APP_INFO_T> pausedAppList;
+}SESSION_INFO_T;
+
+using RequestPolicyInfoMap = std::map<std::string, REQUEST_TYPE_POLICY_INFO_T>;
+using SessionInfoMap = std::map<std::string, SESSION_INFO_T>;
 
 struct CLSError : public LSError
 {

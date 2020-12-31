@@ -54,14 +54,14 @@ class AudioFocusManager
 public:
     ~AudioFocusManager(){};
     bool init(GMainLoop *);
-    static bool _requestAudioControl(LSHandle *sh, LSMessage *message, void *data)
+    static bool _requestFocus(LSHandle *sh, LSMessage *message, void *data)
     {
-        return ((AudioFocusManager *) data)->requestAudioControl(sh, message, NULL);
+        return ((AudioFocusManager *) data)->requestFocus(sh, message, NULL);
     }
 
-    static bool _releaseAudioControl(LSHandle *sh, LSMessage *message, void *data)
+    static bool _releaseFocus(LSHandle *sh, LSMessage *message, void *data)
     {
-        return ((AudioFocusManager *) data)->releaseAudioControl(sh, message, NULL);
+        return ((AudioFocusManager *) data)->releaseFocus(sh, message, NULL);
     }
 
     static bool _getStatus(LSHandle *sh, LSMessage *message, void *data)
@@ -80,39 +80,31 @@ public:
 private:
 
     RequestPolicyInfoMap mAFRequestPolicyInfo;
-    MapRequestNameToType mRequestNameToType;
-    MapRequestTypeToName mRequestTypeToName;
     SessionInfoMap mSessionInfoMap;
     static AudioFocusManager *AFService;
     static LSMethod rootMethod[];
 
     AudioFocusManager();
 
-    bool releaseAudioControl(LSHandle *sh, LSMessage *message, void *data);
-    bool requestAudioControl(LSHandle *sh, LSMessage *message, void *data);
+    bool releaseFocus(LSHandle *sh, LSMessage *message, void *data);
+    bool requestFocus(LSHandle *sh, LSMessage *message, void *data);
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
 
     void broadcastStatusToSubscribers();
     pbnjson::JValue getStatusPayload();
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
-    void createMapRequestNametoType();
-    void createMapRequestTypetoName();
-    bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const std::string& sessionId, common::RequestType& requestType);
-    bool checkFeasibility(const std::string& sessionId, common::RequestType requestType);
-    bool updateCurrentAppStatus(const std::string& sessionId, common::RequestType newRequest);
-    void updateSessionActiveAppList(const std::string& sessionId, const std::string appId, common::RequestType requestType);
-    void updatePausedAppStatus(SessionInfo& sessionInfo, common::RequestType removedRequest);
-    bool sendLostMessage();
-    bool sendPauseMessage();
-    bool signalToApp(const std::string& appId, const std::string& signalMessage);
+    bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const std::string& sessionId, const std::string& requestType);
+    bool checkFeasibility(const std::string& sessionId, const std::string& newRequestType);
+    bool updateCurrentAppStatus(const std::string& sessionId, const std::string& newRequestType);
+    void updateSessionActiveAppList(const std::string& sessionId, const std::string& appId, const std::string& requestType);
+    void updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const std::string& removedRequest);
     bool subscriptionUtility(const std::string& applicationId, LSHandle *serviceHandle, const char operation, const std::string& signalMessage);
     bool sendSignal(LSHandle *sh, LSMessage *message, const std::string& signalMessage, LSError *lserror);
     bool returnErrorText(LSHandle *sh, LSMessage *message, const std::string& errorText, int errorCode);
     bool unsubscribingApp(const std::string& appId);
     bool checkSubscription(const std::string& applicationId);
-    bool broadcastLostToAll(LSHandle *serviceHandle);
-
+    bool signalToApp(const std::string& appId, const std::string& returnType);
 };
 
 #endif

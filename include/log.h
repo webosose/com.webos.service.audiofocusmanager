@@ -40,10 +40,10 @@ extern PmLogContext audioControllerLogContext;
 
 //If log level is higher than DEBUG(lowest), you need to use Message ID.
 //Start up and shutdown message ID's
-#define MSGID_STARTUP                                                        "AUDIOCONTROLLER_STARTUP"                    //Audio controller start up logs
-#define MSGID_STUTDOWN                                                       "AUDIOCONTROLLER_STUTDOWN"                   //Audio controller shutdown logs
-#define MSGID_INIT                                                           "AUDIOCONTROLLER_INIT"                       //Audio controller inialization logs
-#define MSGID_CORE                                                           "AUDIOCONTROLLER_CORE"                       //Audio controller core class logs
+#define MSGID_STARTUP                                                        "AUDIOFOCUSMANAGER_STARTUP"                    //Audio controller start up logs
+#define MSGID_STUTDOWN                                                       "AUDIOFOCUSMANAGER_STUTDOWN"                   //Audio controller shutdown logs
+#define MSGID_INIT                                                           "AUDIOFOCUSMANAGER_INIT"                       //Audio controller inialization logs
+#define MSGID_CORE                                                           "AUDIOFOCUSMANAGER_CORE"                       //Audio controller core class logs
 
 /// Test macro that will make a critical log entry if the test fails
 #define VERIFY(t) (G_LIKELY(t) || (PM_LOG_ERROR(MSGID_VERIFY_FAILED, INIT_KVCOUNT,\
