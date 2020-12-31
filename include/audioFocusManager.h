@@ -1,6 +1,6 @@
 /* @@@LICENSE
 *
-*      Copyright (c) 2020 LG Electronics Company.
+*      Copyright (c) 2021 LG Electronics Company.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ private:
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
 
     void broadcastStatusToSubscribers();
-    std::string getAudioFocusManagerStatusPayload();
+    pbnjson::JValue getStatusPayload();
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
     void createMapRequestNametoType();

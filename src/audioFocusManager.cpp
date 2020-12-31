@@ -1,6 +1,6 @@
 /* @@@LICENSE
 *
-*      Copyright (c) 2020 LG Electronics Company.
+*      Copyright (c) 2021 LG Electronics Company.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -835,11 +835,17 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     }
 
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
-    if (!sendSignal(sh, message, getAudioFocusManagerStatusPayload(), NULL))
-    {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"getStatus: sendSignal failed");
+    pbnjson::JValue jsonObject = pbnjson::JObject();
 
+    jsonObject.put("returnValue", true);
+    jsonObject.put("audioFocusStatus", getStatusPayload());
+
+    if(!LSMessageReply(sh, message, jsonObject.stringify().c_str(), &lserror))
+    {
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"sendSignal:LSMessageReply Failed");
+        return false;
     }
+
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus: Succesfully sent response");
     return true;
 }
@@ -847,9 +853,9 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 /*Functionality of this method
  * TO get the JSON payload for getStatus response in string format
  */
-std::string AudioFocusManager::getAudioFocusManagerStatusPayload()
+pbnjson::JValue AudioFocusManager::getStatusPayload()
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getAudioFocusManagerStatusPayload");
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatusPayload");
 
     pbnjson::JValue audioFocusStatus = pbnjson::JObject();
     pbnjson::JArray sessionsList = pbnjson::JArray();
@@ -882,7 +888,7 @@ std::string AudioFocusManager::getAudioFocusManagerStatusPayload()
     }
 
     audioFocusStatus.put("audioFocusStatus", sessionsList);
-    return audioFocusStatus.stringify();
+    return audioFocusStatus;
 }
 
 /*
@@ -893,7 +899,7 @@ void AudioFocusManager::broadcastStatusToSubscribers()
 {
     LSError lserror;
     LSErrorInit(&lserror);
-    std::string reply = getAudioFocusManagerStatusPayload();
+    std::string reply = getStatusPayload().stringify();
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscribers: reply message to subscriber: %s", \
             reply.c_str());
     //TODO: This is deprecated method for accessing LsHandle.
@@ -1007,7 +1013,7 @@ bool AudioFocusManager::subscriptionUtility(const std::string& applicationId, LS
 bool AudioFocusManager::sendSignal(LSHandle *serviceHandle, LSMessage *iter_message, const std::string& signalMessage, LSError *lserror)
 {
     pbnjson::JValue jsonObject = pbnjson::Object();
-    jsonObject.put("errorCode", 0);
+    //jsonObject.put("errorCode", 0);
     jsonObject.put("returnValue", true);
     jsonObject.put("result", signalMessage.c_str());
     if(!LSMessageReply(serviceHandle, iter_message, pbnjson::JGenerator::serialize(jsonObject, pbnjson::JSchemaFragment("{}")).c_str(), lserror))
