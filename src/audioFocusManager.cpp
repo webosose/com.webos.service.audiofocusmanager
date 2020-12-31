@@ -1,6 +1,6 @@
 /* @@@LICENSE
 *
-*      Copyright (c) 2021 LG Electronics Company.
+*      Copyright (c) 2020 - 2021 LG Electronics Company.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,34 +17,6 @@
 * LICENSE@@@ */
 
 #include <audioFocusManager.h>
-
-const std::string requestAudioControlschema      =  "{\
-                                     \"title\":\"requestAudioControl schema\",\
-                                     \"type\" :\"object\",\
-                                     \"properties\": {\
-                                         \"requestType\": {\"type\":\"string\"},\
-                                         \"sessionId\": {\"type\":\"string\"},\
-                                         \"subscribe\": {\"type\":\"boolean\"}\
-                                       },\
-                                     \"required\" :[\"requestType\", \"sessionId\",\"subscribe\"]\
-                                    }";
-
-const std::string releaseAudioControlschema      =  "{\
-                                     \"title\":\"releaseAudioControl schema\",\
-                                     \"type\" :\"object\",\
-                                     \"properties\": {\
-                                         \"sessionId\": {\"type\":\"string\"}\
-                                       },\
-                                     \"required\" :[\"sessionId\"]\
-                                    }";
-
-const std::string getStatusschema                =  "{\
-                                     \"title\":\"getStatus schema\",\
-                                     \"type\" :\"object\",\
-                                     \"properties\": {\
-                                         \"subscribe\": {\"type\":\"boolean\"}\
-                                       }\
-                                    }";
 
 LSHandle *AudioFocusManager::mServiceHandle;
 
@@ -189,14 +161,21 @@ bool AudioFocusManager::audioFunctionsRegister(std::string serviceName, GMainLoo
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"audioFunctionsRegister");
     bool bRetVal;
-    LSError mLSError;
-    LSErrorInit(&mLSError);
+    CLSError mLSError;
     // add root category
-    bRetVal = LSRegisterCategory (mServiceHandle, "/",
-                                 rootMethod, NULL, NULL, &mLSError);
-    LSERROR_CHECK_AND_PRINT(bRetVal);
+    if (!LSRegisterCategory (mServiceHandle, "/",
+                                 rootMethod, NULL, NULL, &mLSError))
+    {
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "API registration failed");
+        mLSError.Print(__FUNCTION__,__LINE__);
+        return false;
+    }
     if (!LSCategorySetData(mServiceHandle, "/", this, &mLSError))
-    LSERROR_CHECK_AND_PRINT(bRetVal);
+    {
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Setting userdata for APIs failed");
+        mLSError.Print(__FUNCTION__,__LINE__);
+        return false;
+    }
     return true;
 }
 
@@ -209,20 +188,20 @@ Functionality of this method:
 bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"requestFocus");
-    const char* request_payload = LSMessageGetPayload(message);
-    pbnjson::JSchemaFragment inputSchema(requestAudioControlschema);
-    pbnjson::JDomParser parser(NULL);
 
-    if (!parser.parse(request_payload, inputSchema, NULL))
-    {
-        if (!returnErrorText(sh, message, "Invalid schema", AF_ERR_CODE_INVALID_SCHEMA))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestFocus: Failed to send error text for Invalid Schema");
-        return true;
-    }
-    pbnjson::JValue root = parser.getDom();
-    std::string sessionId = root["sessionId"].asString();
-    std::string requestName = root["requestType"].asString();
-    bool subscription = root["subscribe"].asBool();
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3 (PROP(requestType, string), PROP(sessionId, string),
+                                    PROP(subscribe, boolean)) REQUIRED_3(requestType, sessionId,subscribe)));
+
+    if (!msg.parse(__FUNCTION__,sh))
+       return true;
+
+    std::string sessionId ;
+    std::string requestName;
+    bool subscription;
+
+    msg.get("sessionId", sessionId);
+    msg.get("requestType", requestName);
+    msg.get("subscribe", subscription);
 
     //TODO: Add validation logic for validation of session ID
     if (sessionId == "")
@@ -536,21 +515,14 @@ Functionality of this method:
 bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus");
-    const char* payload = LSMessageGetPayload(message);
-    pbnjson::JSchemaFragment inputSchema(getStatusschema);
-    pbnjson::JDomParser parser(NULL);
-    LSError lserror;
-    LSErrorInit (&lserror);
 
-    if (!parser.parse(payload, inputSchema, NULL))
-    {
-        if (!returnErrorText(sh, message, "Invalid schema", AF_ERR_CODE_INVALID_SCHEMA))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseFocus: Failed to sent error text for Invalid Schema");
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(sessionId,string)) REQUIRED_1(sessionId)));
+
+    if (!msg.parse(__FUNCTION__, sh))
         return true;
-    }
 
-    pbnjson::JValue root = parser.getDom();
-    std::string sessionId = root["sessionId"].asString();
+    std::string sessionId;
+    msg.get("sessionId", sessionId);
 
     const char* appId = LSMessageGetApplicationID(message);
     if (appId == NULL)
@@ -661,27 +633,21 @@ Functionality of this method:
 bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus");
-    const char* payload = LSMessageGetPayload(message);
-    pbnjson::JSchemaFragment inputSchema(getStatusschema);
-    pbnjson::JDomParser parser(NULL);
-    LSError lserror;
-    LSErrorInit (&lserror);
+    CLSError lserror;
 
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
-    if (!parser.parse(payload, inputSchema, NULL))
-    {
-        if (!returnErrorText(sh, message, "Invalid schema", AF_ERR_CODE_INVALID_SCHEMA))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "getStatus: Failed to sent error text for Invalid Schema");
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(subscribe, string))));
+
+    if (!msg.parse(__FUNCTION__, sh))
         return true;
-    }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
+    bool subscription;
 
-    pbnjson::JValue root = parser.getDom();
-    bool subscription = root["subscribe"].asBool();
+    msg.get("subscribe",subscription);
     if (LSMessageIsSubscription (message))
     {
         if (!LSSubscriptionProcess(sh, message, &subscription, &lserror))
-            LSErrorPrintAndFree(&lserror);
+        {
+            lserror.Print(__FUNCTION__,__LINE__);
+        }
     }
 
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
@@ -864,12 +830,15 @@ Functionality of this method:
 bool AudioFocusManager::returnErrorText(LSHandle *sh, LSMessage *message, const std::string& errorText, int errorCode)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"returnErrorText: %s", errorText.c_str());
+
     pbnjson::JValue jsonObject = pbnjson::Object();
     jsonObject.put("errorCode", errorCode);
     jsonObject.put("returnValue", false);
     jsonObject.put("errorText", errorText.c_str());
 
-    if(!LSMessageReply(sh, message, pbnjson::JGenerator::serialize(jsonObject, pbnjson::JSchemaFragment("{}")).c_str(), NULL))
+    std::string reply = pbnjson::JGenerator::serialize(jsonObject, pbnjson::JSchemaFragment("{}"));
+
+    if(!LSMessageReply(sh, message, reply.c_str(), NULL))
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"returning error text: %s failed", errorText.c_str());
         return false;

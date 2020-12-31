@@ -1,6 +1,6 @@
 /* @@@LICENSE
 *
-*      Copyright (c) 2020 LG Electronics Company.
+*      Copyright (c) 2020 - 2021 LG Electronics Company.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@
 #include <PmLogLib.h>
 #include <glib.h>
 
-//get Audio controller pm log context
+//get Audio focus manager pm log context
 PmLogContext getPmLogContext();
 
-//set Audio controller pm log context
+//set Audio focus manager pm log context
 PmLogErr setPmLogContext(const char* logContextName);
 
 //This is for PmLog implementation
-extern PmLogContext audioControllerLogContext;
+extern PmLogContext audioFocusMgrLogContext;
 #define INIT_KVCOUNT                0
 
 #define PM_LOG_CRITICAL(msgid, kvcount, ...)  PmLogCritical(getPmLogContext(), msgid, kvcount, ##__VA_ARGS__)
@@ -40,10 +40,14 @@ extern PmLogContext audioControllerLogContext;
 
 //If log level is higher than DEBUG(lowest), you need to use Message ID.
 //Start up and shutdown message ID's
-#define MSGID_STARTUP                                                        "AUDIOFOCUSMANAGER_STARTUP"                    //Audio controller start up logs
-#define MSGID_STUTDOWN                                                       "AUDIOFOCUSMANAGER_STUTDOWN"                   //Audio controller shutdown logs
-#define MSGID_INIT                                                           "AUDIOFOCUSMANAGER_INIT"                       //Audio controller inialization logs
-#define MSGID_CORE                                                           "AUDIOFOCUSMANAGER_CORE"                       //Audio controller core class logs
+#define MSGID_STARTUP                                                        "AUDIOFOCUSMANAGER_STARTUP"                    //Audio focus manager start up logs
+#define MSGID_STUTDOWN                                                       "AUDIOFOCUSMANAGER_STUTDOWN"                   //Audio focus manager shutdown logs
+#define MSGID_INIT                                                           "AUDIOFOCUSMANAGER_INIT"                       //Audio focus manager inialization logs
+#define MSGID_CORE                                                           "AUDIOFOCUSMANAGER_CORE"                       //Audio focus manager core class logs
+#define MSGID_PARSE_JSON                                                     "AUDIOFOCUSMANAGER_PARSE_JSON"                 //Audio focus manager Parse json
+#define MSGID_MALFORMED_JSON                                                 "AUDIOFOCUSMANAGER_MALFORMED_JSON"             //Audio focus manager Malformed json error
+#define MSGID_TEST_FAILED                                                    "AUDIOFOCUSMANAGER_UT_FAILED"                   //Audio focus manager Unittest failed
+
 
 /// Test macro that will make a critical log entry if the test fails
 #define VERIFY(t) (G_LIKELY(t) || (PM_LOG_ERROR(MSGID_VERIFY_FAILED, INIT_KVCOUNT,\

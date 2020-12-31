@@ -1,6 +1,6 @@
 /* @@@LICENSE
 *
-*      Copyright (c) 2020 LG Electronics Company.
+*      Copyright (c) 2020 - 2021 LG Electronics Company.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@
 
 #include "log.h"
 
-PmLogContext audioControllerLogContext;
+PmLogContext audioFocusMgrLogContext;
 
 PmLogErr setPmLogContext(const char* logContextName)
 {
-    PmLogErr error = PmLogGetContext(logContextName, &audioControllerLogContext);
+    PmLogErr error = PmLogGetContext(logContextName, &audioFocusMgrLogContext);
     return error;
 }
 
 
 PmLogContext getPmLogContext()
 {
-    return audioControllerLogContext;
+    return audioFocusMgrLogContext;
 }

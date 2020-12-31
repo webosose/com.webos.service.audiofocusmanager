@@ -1,6 +1,6 @@
 /* @@@LICENSE
  *
- * Copyright (c) 2020 LG Electronics, Inc.
+ * Copyright (c) 2020 - 2021 LG Electronics, Inc.
  *
  * Confidential computer software. Valid license from LG required for
  * possession, use or copying. Consistent with FAR 12.211 and 12.212,
@@ -65,7 +65,7 @@ bool audioServiceRegister(std::string srvcname, GMainLoop *mainLoop, LSHandle **
     return true;
 }
 
-AudioFocusManager *audioControllerService = NULL;
+AudioFocusManager *audioFocusManager = NULL;
 
 void signalHandler(int signal)
 {
@@ -119,13 +119,18 @@ int main(int argc, char *argv[])
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Failed to set Register service!");
         return 0;
     }
-    audioControllerService = AudioFocusManager::getInstance();
-    if(audioControllerService->init(mainLoop) == false)
+    audioFocusManager = AudioFocusManager::getInstance();
+    if (!audioFocusManager)
+    {
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Couldn't get the Audiofocusmanager instance!");
+        return 0;
+    }
+    if(audioFocusManager->init(mainLoop) == false)
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "getInstance failed: Failed to initialize the object!");
         g_main_loop_unref(mainLoop);
-        delete audioControllerService;
-        audioControllerService = NULL;
+        delete audioFocusManager;
+        audioFocusManager = NULL;
         return -1;
     }
 

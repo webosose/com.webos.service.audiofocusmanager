@@ -1,6 +1,6 @@
 # @@@LICENSE
 #
-#   Copyright (c) 2014 - 2020 LG Electronics Inc. All Rights Reserved
+#   Copyright (c) 2014 - 2021 LG Electronics Inc. All Rights Reserved
 #
 # LICENSE@@@
 
@@ -32,6 +32,8 @@ set(SRC
         ${PROJECT_SOURCE_DIR}/src/audioFocusManager.cpp
         ${PROJECT_SOURCE_DIR}/src/log.cpp
         ${PROJECT_SOURCE_DIR}/src/utils.cpp
+        ${PROJECT_SOURCE_DIR}/src/messageUtils.cpp
+        ${PROJECT_SOURCE_DIR}/src/ConstString.cpp
 )
 set(LIBRARIES
         ${GLIB2_LDFLAGS}
