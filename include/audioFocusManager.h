@@ -71,7 +71,9 @@ public:
     }
 
     static AudioFocusManager *getInstance();
-    void deleteInstance();
+    static void deleteInstance();
+    static void loadAudioFocusManager();
+
     bool signalTermCaught();
 
     void LSErrorPrintAndFree(LSError *ptrLSError);

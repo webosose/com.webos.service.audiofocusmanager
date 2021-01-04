@@ -71,8 +71,25 @@ void signalHandler(int signal)
 {
     PM_LOG_WARNING(MSGID_INIT, INIT_KVCOUNT, "Signal Caught");
 
-    //TODO handle system signals
-    if(mainLoop)
+    const char *str = nullptr;
+    bool terminated = false;
+    switch (signal)
+    {
+        case SIGTERM:
+            str = "SIGTERM";
+            terminated = true;
+            break;
+        case SIGINT:
+            str = "SIGINT";
+            terminated = true;
+            break;
+        default:
+            str = "Unknown";
+            break;
+    }
+
+    PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT,"signal received.. signal[%s]", str);
+    if(terminated && mainLoop)
     {
         g_main_loop_quit(mainLoop);
         PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT,"signalHandler-> g_main_loop_quit(mainLoop)");
@@ -82,8 +99,14 @@ void signalHandler(int signal)
 
 void exit_proc(void)
 {
-    //TODO delete audiofocus manager object
-    PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT, "deleted AudioFocusManager object");
+    if (audioFocusManager)
+    {
+        AudioFocusManager::deleteInstance();
+        audioFocusManager = NULL;
+        PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT, "deleted AudioFocusManager object");
+    }
+    else
+        PM_LOG_INFO(MSGID_STUTDOWN, INIT_KVCOUNT, "AudioFocusManager object is null");
 }
 
 int main(int argc, char *argv[])
@@ -119,17 +142,13 @@ int main(int argc, char *argv[])
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Failed to set Register service!");
         return 0;
     }
-    audioFocusManager = AudioFocusManager::getInstance();
-    if (!audioFocusManager)
-    {
-        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Couldn't get the Audiofocusmanager instance!");
-        return 0;
-    }
-    if(audioFocusManager->init(mainLoop) == false)
+    AudioFocusManager::loadAudioFocusManager();
+    audioFocusManager  = AudioFocusManager::getInstance();
+    if(audioFocusManager  && audioFocusManager->init(mainLoop) == false)
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "getInstance failed: Failed to initialize the object!");
         g_main_loop_unref(mainLoop);
-        delete audioFocusManager;
+        AudioFocusManager::deleteInstance();
         audioFocusManager = NULL;
         return -1;
     }

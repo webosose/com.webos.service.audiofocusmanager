@@ -39,9 +39,9 @@ Functionality of this method:
 ->This function will create the object for AudioFocusManager if not present and returns the pointer.
 ->If the object is already created then it will just return the pointer.
 */
-AudioFocusManager *AudioFocusManager::getInstance()
+void AudioFocusManager::loadAudioFocusManager()
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "getInstance");
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "loadAudioFocusManager");
     if(NULL == AFService)
     {
         AFService = new(std::nothrow) AudioFocusManager();
@@ -51,6 +51,15 @@ AudioFocusManager *AudioFocusManager::getInstance()
     {
         return AFService;
     }
+}
+
+/*
+Functionality of this method:
+->This function will return the object for AudioFocusManager.
+*/
+AudioFocusManager *AudioFocusManager::getInstance()
+{
+    return AFService;
 }
 
 /*
