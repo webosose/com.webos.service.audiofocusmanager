@@ -279,7 +279,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     if (LSMessageIsSubscription(message))
         LSSubscriptionAdd(sh, "AFSubscriptionlist", message, NULL);
     updateSessionActiveAppList(sessionId, appId, requestName);
-    broadcastStatusToSubscribers();
+    broadcastStatusToSubscribers(sessionId);
     return true;
 }
 
@@ -568,6 +568,7 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
             curSessionInfo.pausedAppList.erase(itPaused--);
             if (!sendSignal(sh, message, "AF_SUCCESSFULLY_RELEASED", NULL))
                 PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseFocus: Failed to sent message: AF_SUCCESSFULLY_RELEASED");
+            broadcastStatusToSubscribers(sessionId);
             return true;
         }
     }
@@ -585,6 +586,7 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
             updatePausedAppStatus(curSessionInfo, requestType);
             if (!sendSignal(sh, message, "AF_SUCCESSFULLY_RELEASED", NULL))
                 PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseFocus: Failed to sent message: AF_SUCCESSFULLY_RELEASED");
+            broadcastStatusToSubscribers(sessionId);
             return true;
         }
     }
@@ -643,27 +645,35 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus");
     CLSError lserror;
+    pbnjson::JValue jsonObject = pbnjson::JObject();
 
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(subscribe, string))));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(sessionId, string)) REQUIRED_1(sessionId)));
 
     if (!msg.parse(__FUNCTION__, sh))
         return true;
     bool subscription;
+    std::string sessionId;
 
     msg.get("subscribe",subscription);
     if (LSMessageIsSubscription (message))
     {
+        jsonObject.put("subscribed", true);
         if (!LSSubscriptionProcess(sh, message, &subscription, &lserror))
         {
             lserror.Print(__FUNCTION__,__LINE__);
         }
     }
+    else
+    {
+        jsonObject.put("subscribed", false);
+    }
 
+    msg.get("sessionId",sessionId);
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
-    pbnjson::JValue jsonObject = pbnjson::JObject();
 
+    //TODO : session id validation
     jsonObject.put("returnValue", true);
-    jsonObject.put("audioFocusStatus", getStatusPayload());
+    jsonObject.put("audioFocusStatus", getStatusPayload(sessionId));
 
     if(!LSMessageReply(sh, message, jsonObject.stringify().c_str(), &lserror))
     {
@@ -677,7 +687,7 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 /*Functionality of this method
  * TO get the JSON payload for getStatus response in string format
  */
-pbnjson::JValue AudioFocusManager::getStatusPayload()
+pbnjson::JValue AudioFocusManager::getStatusPayload(std::string sessionId)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatusPayload");
 
@@ -685,31 +695,34 @@ pbnjson::JValue AudioFocusManager::getStatusPayload()
     pbnjson::JArray sessionsList = pbnjson::JArray();
     for (auto sessionInfomap : mSessionInfoMap)
     {
-        SESSION_INFO_T& sessionInfo = sessionInfomap.second;
-        std::string sessionId = sessionInfomap.first;
-        pbnjson::JArray activeAppArray = pbnjson::JArray();
-        pbnjson::JArray pausedAppArray = pbnjson::JArray();
-        pbnjson::JValue curSession = pbnjson::JObject();
-
-        curSession.put("sessionId", sessionId);
-        for (auto activeAppInfo : sessionInfo.activeAppList)
+        if (sessionId == sessionInfomap.first)
         {
-            pbnjson::JValue activeApp = pbnjson::JObject();
-            activeApp.put("appId", activeAppInfo.appId);
-            activeApp.put("requestType", activeAppInfo.requestType);
-            activeAppArray.append(activeApp);
-        }
-        curSession.put("AFactiveRequests",activeAppArray);
+            SESSION_INFO_T& sessionInfo = sessionInfomap.second;
+            std::string sessionId = sessionInfomap.first;
+            pbnjson::JArray activeAppArray = pbnjson::JArray();
+            pbnjson::JArray pausedAppArray = pbnjson::JArray();
+            pbnjson::JValue curSession = pbnjson::JObject();
 
-        for (auto pausedAppInfo : sessionInfo.pausedAppList)
-        {
-            pbnjson::JValue pausedApp = pbnjson::JObject();
-            pausedApp.put("appId", pausedAppInfo.appId);
-            pausedApp.put("requestType", pausedAppInfo.requestType);
-            pausedAppArray.append(pausedApp);
+            curSession.put("sessionId", sessionId);
+            for (auto activeAppInfo : sessionInfo.activeAppList)
+            {
+                pbnjson::JValue activeApp = pbnjson::JObject();
+                activeApp.put("appId", activeAppInfo.appId);
+                activeApp.put("requestType", activeAppInfo.requestType);
+                activeAppArray.append(activeApp);
+            }
+            curSession.put("AFactiveRequests",activeAppArray);
+
+            for (auto pausedAppInfo : sessionInfo.pausedAppList)
+            {
+                pbnjson::JValue pausedApp = pbnjson::JObject();
+                pausedApp.put("appId", pausedAppInfo.appId);
+                pausedApp.put("requestType", pausedAppInfo.requestType);
+                pausedAppArray.append(pausedApp);
+            }
+            curSession.put("pausedRequests", pausedAppArray);
+            sessionsList.append(curSession);
         }
-        curSession.put("pausedRequests", pausedAppArray);
-        sessionsList.append(curSession);
     }
 
     audioFocusStatus.put("audioFocusStatus", sessionsList);
@@ -720,19 +733,16 @@ pbnjson::JValue AudioFocusManager::getStatusPayload()
  * Functionality of this method:
  * Notigy /getStatus subscribers on the current AudioFocusManager status
  */
-void AudioFocusManager::broadcastStatusToSubscribers()
+void AudioFocusManager::broadcastStatusToSubscribers(std::string sessionId)
 {
-    LSError lserror;
-    LSErrorInit(&lserror);
-    std::string reply = getStatusPayload().stringify();
+    CLSError lserror;
+    std::string reply = getStatusPayload(sessionId).stringify();
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscribers: reply message to subscriber: %s", \
             reply.c_str());
-    //TODO: This is deprecated method for accessing LsHandle.
-    //Once the entire LS subscription mechanism is updated for the new API sets this also will be upgraded.
 
     if (!LSSubscriptionReply(GetLSService(), AF_API_GET_STATUS, reply.c_str(), &lserror))
     {
-        LSErrorPrintAndFree(&lserror);
+        lserror.Print(__FUNCTION__, __LINE__);
     }
 }
 
@@ -753,8 +763,7 @@ bool AudioFocusManager::subscriptionUtility(const std::string& applicationId, LS
     pbnjson::JDomParser parser(NULL);
     LSSubscriptionIter *iter = NULL;
     bool retValAcquire = false,found = false;
-    LSError lserror;
-    LSErrorInit(&lserror);
+    CLSError lserror;
     retValAcquire = LSSubscriptionAcquire(serviceHandle, "AFSubscriptionlist", &iter, &lserror);
 
     if(retValAcquire)
@@ -794,8 +803,7 @@ bool AudioFocusManager::subscriptionUtility(const std::string& applicationId, LS
                             break;
                 }
 
-                LSErrorPrint(&lserror, stderr);
-                LSErrorFree(&lserror);
+                lserror.Print(__FUNCTION__,__LINE__);
                 break;
             }
         }
@@ -890,19 +898,6 @@ bool AudioFocusManager::checkSubscription(const std::string& applicationId)
 
     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"checkSubscription: failed in LSSubscriptionAcquire %s", applicationId.c_str());
     return false;
-}
-
-/*
-Functionality of this method:
-->Prints the error message.
-*/
-void AudioFocusManager::LSErrorPrintAndFree(LSError *ptrLSError)
-{
-    if(ptrLSError != NULL)
-    {
-        LSErrorPrint(ptrLSError, stderr);
-        LSErrorFree(ptrLSError);
-    }
 }
 
 /*

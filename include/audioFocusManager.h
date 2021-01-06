@@ -75,8 +75,6 @@ public:
     static void loadAudioFocusManager();
 
     bool signalTermCaught();
-
-    void LSErrorPrintAndFree(LSError *ptrLSError);
     bool audioFunctionsRegister(std::string srvcname, GMainLoop *mainLoop, LSHandle *msvcHandle);
     static LSHandle *mServiceHandle;
 
@@ -93,8 +91,8 @@ private:
     bool requestFocus(LSHandle *sh, LSMessage *message, void *data);
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
 
-    void broadcastStatusToSubscribers();
-    pbnjson::JValue getStatusPayload();
+    void broadcastStatusToSubscribers(std::string sessionId);
+    pbnjson::JValue getStatusPayload(std::string sessionId = "");
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
     bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const std::string& sessionId, const std::string& requestType);
