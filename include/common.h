@@ -58,4 +58,10 @@ struct CLSError : public LSError
     }
 };
 
+typedef enum ResponseType
+{
+    eLSReply,
+    eLSRespond
+}RESPONSE_TYPE;
+
 #endif

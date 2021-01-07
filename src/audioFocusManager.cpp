@@ -206,6 +206,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
 
     std::string sessionId ;
     std::string requestName;
+    std::string reply;
     bool subscription;
 
     msg.get("sessionId", sessionId);
@@ -215,69 +216,51 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     //TODO: Add validation logic for validation of session ID
     if (sessionId == "")
     {
-        if (!returnErrorText(sh, message, "sessionId cannot be empty", AF_ERR_CODE_INTERNAL))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT,\
-                "requestFocus:Failed to sent error text for Internal Error due to empty sessionId");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "sessionId cannot be empty");
+        LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
-
     const char* appId = LSMessageGetApplicationID(message);
     if (appId == NULL)
     {
         appId = LSMessageGetSenderServiceName(message);
         if (appId == NULL)
         {
-            if (!returnErrorText(sh, message, "appId received as NULL", AF_ERR_CODE_INTERNAL))
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT,\
-                    "requestFocus: Failed to sent error text for Internal Error due to NULL appId");
+            reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "appId received as NULL");
+            LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
             return true;
         }
     }
-
     const auto& it = mAFRequestPolicyInfo.find(requestName);
     if (it != mAFRequestPolicyInfo.end())
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Valid request type received");
     else
     {
-        if (!returnErrorText(sh, message, "Invalid Request Type", AF_ERR_CODE_UNKNOWN_REQUEST))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT,\
-                "requestFocus: Failed to sent error text for Invalid Request Type to %s", appId);
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_UNKNOWN_REQUEST, "Invalid Request Type");
+        LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
 
     if (!subscription)
     {
-        if (!returnErrorText(sh, message, "Subscription should be true", AF_ERR_CODE_INTERNAL))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT,\
-                "requestFocus: Failed to sent error text for Internal Error due to incorrect subscription value to %s", appId);
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "Subscription should be true");
+        LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
-
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "requestFocus: sessionId: %s requestType: %s appId %s", \
         sessionId.c_str(), requestName.c_str(), appId);
-
-    //Check if request type is already granted for the resource
     if (checkGrantedAlready(sh, message, appId, sessionId, requestName))
         return true;
     if (!checkFeasibility(sessionId, requestName))
     {
-        //TO DO add LSMessageResponse/Reply util function
-        //Reply CANNOT_BE_GRANTED
-        if (!sendSignal(sh, message, "AF_CANNOTBEGRANTED", NULL))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestFocus: sendSignal failed : AF_CANNOTBEGRANTED");
+        sendApplicationResponse(sh, message, "AF_CANNOTBEGRANTED");
         return true;
     }
     if (!updateCurrentAppStatus(sessionId, requestName))
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestFocus: updateCurrentAppStatus Failed");
-    //TO DO add LSMessageResponse/Reply util function
-    if (!sendSignal(sh, message, "AF_GRANTED", NULL))
-    {
-        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestFocus: sendSignal failed : AF_GRANTED");
-        //TODO: Add failover steps, update paused list if needed
-        return true;
-    }
+    sendApplicationResponse(sh, message, "AF_GRANTED");
     if (LSMessageIsSubscription(message))
-        LSSubscriptionAdd(sh, "AFSubscriptionlist", message, NULL);
+        LSSubscriptionAdd(sh, "AFSubscriptionList", message, NULL);
     updateSessionActiveAppList(sessionId, appId, requestName);
     broadcastStatusToSubscribers(sessionId);
     return true;
@@ -306,43 +289,22 @@ bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, st
         if (itPaused->requestType == requestType && \
                 itPaused->appId == applicationId)
         {
-            if(!sendSignal(sh, message, "AF_GRANTEDALREADY", NULL))
-            {
-                //unsubscribe the app
-                if (!unsubscribingApp(applicationId))
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: unsubscribing failed for %s", applicationId.c_str());
-                sessionInfo.pausedAppList.erase(itPaused--);
-                PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: Failed to send AF_GRANTEDALREADY %s", applicationId.c_str());
-                return true;
-
-            }
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AF_GRANTEDALREADY %s", applicationId.c_str());
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AF_GRANTEDALREADY in paused list:%s", applicationId.c_str());
+            sendApplicationResponse(sh, message, "AF_GRANTEDALREADY");
             return true;
         }
     }
-
     for (auto itActive = sessionInfo.activeAppList.begin(); \
             itActive != sessionInfo.activeAppList.end(); itActive++)
     {
         if (itActive->requestType == requestType && \
                 itActive->appId == applicationId)
         {
-            if(!sendSignal(sh, message, "AF_GRANTEDALREADY", NULL))
-            {
-                //unsubscribe the app
-                if (!unsubscribingApp(applicationId))
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: unsubscribing failed for %s", applicationId.c_str());
-                sessionInfo.activeAppList.erase(itActive--);
-                PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: Failed to send AF_GRANTEDALREADY %s", applicationId.c_str());
-                return true;
-
-            }
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AF_GRANTEDALREADY");
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready: AF_GRANTEDALREADY in active list%s", applicationId.c_str());
+            sendApplicationResponse(sh, message, "AF_GRANTEDALREADY");
             return true;
         }
     }
-
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "checkGrantedAlready: Request shall be approved for %s", applicationId.c_str());
     return false;
 }
 
@@ -350,7 +312,8 @@ bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, st
  * To check if active request types in the requesting session has any request which will not grant the new request type*/
 bool AudioFocusManager::checkFeasibility(const std::string& sessionId, const std::string& newRequestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility for sessionId:%s newRequestType:%s", sessionId.c_str(), newRequestType.c_str());
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility for sessionId:%s newRequestType:%s",\
+        sessionId.c_str(), newRequestType.c_str());
     auto itNewRequestPolicy = mAFRequestPolicyInfo.find(newRequestType);
     if (itNewRequestPolicy == mAFRequestPolicyInfo.end())
     {
@@ -380,13 +343,6 @@ bool AudioFocusManager::checkFeasibility(const std::string& sessionId, const std
         if (activeRequestPolicy.priority < newRequestPolicy.priority && \
                 activeRequestPolicy.type != "mix")
         {
-            //Check if the app is alive
-            if (!checkSubscription(itActive.appId))
-            {
-                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: active app : %s is not alive", itActive.appId.c_str());
-                //TODO: Remove from the list and see if pausedapp list needs any update
-                continue;
-            }
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: newrequestType: %s cannot be granted due to active request: %s", \
                 newRequestType.c_str(), activeRequest.c_str());
             return false;
@@ -435,16 +391,7 @@ bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, con
             {
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_PAUSE to %s", \
                     itActive->appId.c_str());
-                if (!signalToApp(itActive->appId, "AF_PAUSE"))
-                {
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AF_PAUSE to %s", \
-                        itActive->appId.c_str());
-                    if (!unsubscribingApp(itActive->appId))
-                        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to Unsubscribe app: %s", \
-                            itActive->appId.c_str());
-                    curSessionInfo.activeAppList.erase(itActive--);
-                    continue;
-                }
+                manageAppSubscription(itActive->appId, "AF_PAUSE", 's');
                 curSessionInfo.pausedAppList.push_back(*itActive);
                 curSessionInfo.activeAppList.erase(itActive--);
             }
@@ -452,12 +399,7 @@ bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, con
             {
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_LOST to %s", \
                         itActive->appId.c_str());
-                if (!signalToApp(itActive->appId, "AF_LOST"))
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AF_LOST to %s", \
-                        itActive->appId.c_str());
-                if (!unsubscribingApp(itActive->appId))
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to Unsubscribe to active app: %s", \
-                        itActive->appId.c_str());
+                manageAppSubscription(itActive->appId, "AF_LOST", 'n');
                 curSessionInfo.activeAppList.erase(itActive--);
             }
             else
@@ -477,15 +419,7 @@ bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, con
         }
         if (newRequestPolicy.type == "long")
         {
-            if (!signalToApp(itPaused->appId, "AF_LOST"))
-            {
-                    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to sent AF_LOST to %s", \
-                        itPaused->appId.c_str());
-                    if (!unsubscribingApp(itPaused->appId))
-                        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Failed to Unsubscribe to paused app");
-            }
-            if (!unsubscribingApp(itPaused->appId))
-                PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: unsubscribing failed");
+            manageAppSubscription(itPaused->appId, "AF_LOST", 'n');
             curSessionInfo.pausedAppList.erase(itPaused--);
         }
     }
@@ -523,14 +457,11 @@ Functionality of this method:
 */
 bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *data)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus");
-
     LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(sessionId,string)) REQUIRED_1(sessionId)));
-
     if (!msg.parse(__FUNCTION__, sh))
         return true;
-
     std::string sessionId;
+    std::string reply;
     msg.get("sessionId", sessionId);
 
     const char* appId = LSMessageGetApplicationID(message);
@@ -539,21 +470,18 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
         appId = LSMessageGetSenderServiceName(message);
         if (appId == NULL)
         {
-            if (!returnErrorText(sh, message, "Internal error", AF_ERR_CODE_INTERNAL))
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT,\
-                    "releaseFocus: Failed to sent error text for Internal Error due to NULL appId to %s", appId);
+            reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "Internal error");
+            LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
             return true;
         }
     }
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: sessionId: %s appId: %s", sessionId.c_str(), appId);
-
     auto itSession = mSessionInfoMap.find(sessionId);
     if (itSession == mSessionInfoMap.end())
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: Session ID cannot be find");
-        if (!returnErrorText(sh, message, "Session Id not found", AF_ERR_CODE_INTERNAL))
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT,\
-                "releaseFocus: Failed to sent error text for Internal Error due to session ID not found");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "Session Id not found");
+        LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
     SESSION_INFO_T& curSessionInfo = itSession->second;
@@ -563,12 +491,10 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
         {
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: Removing appId: %s Request type: %s", \
                 appId, itPaused->requestType.c_str());
-            if (!unsubscribingApp(appId))
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseFocus: unsubscribingApp failed for %s", appId);
+            manageAppSubscription(appId, "AF_RELEASED", 'r');
             curSessionInfo.pausedAppList.erase(itPaused--);
-            if (!sendSignal(sh, message, "AF_SUCCESSFULLY_RELEASED", NULL))
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseFocus: Failed to sent message: AF_SUCCESSFULLY_RELEASED");
             broadcastStatusToSubscribers(sessionId);
+            sendApplicationResponse(sh, message, "AF_SUCCESSFULLY_RELEASED");
             return true;
         }
     }
@@ -579,23 +505,20 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
         {
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: Removing appId: %s Request type: %s", \
                 appId, itActive->requestType.c_str());
-            if (!unsubscribingApp(appId))
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseFocus: unsubscribingApp failed for %s", appId);
+            manageAppSubscription(appId, "AF_RELEASED", 'r');
             std::string requestType = itActive->requestType;
             curSessionInfo.activeAppList.erase(itActive--);
             updatePausedAppStatus(curSessionInfo, requestType);
-            if (!sendSignal(sh, message, "AF_SUCCESSFULLY_RELEASED", NULL))
-                PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "releaseFocus: Failed to sent message: AF_SUCCESSFULLY_RELEASED");
             broadcastStatusToSubscribers(sessionId);
+            sendApplicationResponse(sh, message, "AF_SUCCESSFULLY_RELEASED");
             return true;
         }
     }
 
     PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: appId: %s cannot be found in session: %s" , \
         appId, sessionId.c_str());
-    if (!returnErrorText(sh, message, "Application not registered", AF_ERR_CODE_INTERNAL))
-        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT,\
-            "releaseFocus: Failed to sent error text for Internal Error:application not registered");
+    reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "Application not registered");
+    LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
     return true;
 }
 
@@ -756,16 +679,16 @@ Functionality of this method:
     operation 'r' : Removes the subscription for the respective applicationId passed.
     operation 'c' : This is for checking whether the corresponding applicationId is subscribed or not.
 */
-bool AudioFocusManager::subscriptionUtility(const std::string& applicationId, LSHandle *serviceHandle, const char operation, const std::string& signalMessage)
+void AudioFocusManager::manageAppSubscription(const std::string& applicationId, const std::string& payload, const char operation)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"subscriptionUtility: Operation: %c, appId: %s", operation, applicationId.c_str());
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"notifyApplication: applicationId:%s payload:%s operation:%c",\
+        applicationId.c_str(), payload.c_str(), operation);
     std::string subscribed_appId;
     pbnjson::JDomParser parser(NULL);
     LSSubscriptionIter *iter = NULL;
-    bool retValAcquire = false,found = false;
+    bool retValAcquire = false;
     CLSError lserror;
-    retValAcquire = LSSubscriptionAcquire(serviceHandle, "AFSubscriptionlist", &iter, &lserror);
-
+    retValAcquire = LSSubscriptionAcquire(GetLSService(), "AFSubscriptionList", &iter, &lserror);
     if(retValAcquire)
     {
         while(LSSubscriptionHasNext(iter))
@@ -775,31 +698,35 @@ bool AudioFocusManager::subscriptionUtility(const std::string& applicationId, LS
             parser.parse(msgJsonArgument, pbnjson::JSchemaFragment("{}"), NULL);
             pbnjson::JValue msgJsonSubArgument = parser.getDom();
             subscribed_appId = msgJsonSubArgument["appId"].asString();
-
             if(!((applicationId).compare(subscribed_appId)))
             {
-                found = true;
-
                 switch(operation)
                 {
                     case 's':
-                            if(!sendSignal(serviceHandle, iter_message, signalMessage, &lserror))
-                            {
-                                found = false;
-                            }
+                            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription send response:%s",\
+                                subscribed_appId.c_str());
+                            sendApplicationResponse(GetLSService(), iter_message, payload);
                             break;
 
-                    case 'r':
-                            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"subscriptionUtility: Remove %s", subscribed_appId.c_str());
+                    case 'n':
+                            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription:send response and remove %s",\
+                                subscribed_appId.c_str());
+                            sendApplicationResponse(GetLSService(), iter_message, payload);
                             LSSubscriptionRemove(iter);
                             break;
 
+                    case 'r':
+                            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription:remove %s",\
+                                subscribed_appId.c_str());
+                            LSSubscriptionRemove(iter);
+                            break;
                     case 'c':
-                            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"subscriptionUtility: Check %s", subscribed_appId.c_str());
+                            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription: Check %s",\
+                                subscribed_appId.c_str());
                             break;
 
                     default:
-                            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"subscriptionUtility: INVALID OPTION");
+                            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription: INVALID OPTION");
                             break;
                 }
 
@@ -807,97 +734,20 @@ bool AudioFocusManager::subscriptionUtility(const std::string& applicationId, LS
                 break;
             }
         }
-
         LSSubscriptionRelease(iter);
-
-        if(found)
-        {
-            return true;
-        }
-
-        return false;
     }
     else
-    {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"subscriptionUtility: failed in LSSubscriptionAcquire");
-        return false;
-    }
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription: failed in LSSubscriptionAcquire");
 }
 
-bool AudioFocusManager::sendSignal(LSHandle *serviceHandle, LSMessage *iter_message, const std::string& signalMessage, LSError *lserror)
+void AudioFocusManager::sendApplicationResponse(LSHandle *serviceHandle, LSMessage *message, const std::string& payload)
 {
-    pbnjson::JValue jsonObject = pbnjson::Object();
-    //jsonObject.put("errorCode", 0);
-    jsonObject.put("returnValue", true);
-    jsonObject.put("result", signalMessage.c_str());
-    if(!LSMessageReply(serviceHandle, iter_message, pbnjson::JGenerator::serialize(jsonObject, pbnjson::JSchemaFragment("{}")).c_str(), lserror))
-    {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"sendSignal:LSMessageReply Failed");
-        return false;
-    }
-
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"sendSignal: %s", signalMessage.c_str());
-    return true;
-}
-
-/*
-Functionality of this method:
-->It will send error message to the applications.
-*/
-bool AudioFocusManager::returnErrorText(LSHandle *sh, LSMessage *message, const std::string& errorText, int errorCode)
-{
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"returnErrorText: %s", errorText.c_str());
-
-    pbnjson::JValue jsonObject = pbnjson::Object();
-    jsonObject.put("errorCode", errorCode);
-    jsonObject.put("returnValue", false);
-    jsonObject.put("errorText", errorText.c_str());
-
-    std::string reply = pbnjson::JGenerator::serialize(jsonObject, pbnjson::JSchemaFragment("{}"));
-
-    if(!LSMessageReply(sh, message, reply.c_str(), NULL))
-    {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"returning error text: %s failed", errorText.c_str());
-        return false;
-    }
-
-    return true;
-}
-
-/*
-Functionality of this method:
-->This will Unsubscribe the application.
-*/
-bool AudioFocusManager::unsubscribingApp(const std::string& applicationId)
-{
-    //TODO:Implement LS subscription
-    return true;
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"unsubscribingApp: %s", applicationId.c_str());
-
-    if(subscriptionUtility(applicationId, GetLSService(), 'r', ""))
-    {
-        return true;
-    }
-
-    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"unsubscribingApp: failed in LSSubscriptionAcquire");
-    return false;
-}
-
-/*
-Functionality of this method:
-->This will check whether the application is alive or not.
-*/
-bool AudioFocusManager::checkSubscription(const std::string& applicationId)
-{
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkSubscription: %s", applicationId.c_str());
-
-    if(subscriptionUtility(applicationId, GetLSService(), 'c', ""))
-    {
-        return true;
-    }
-
-    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"checkSubscription: failed in LSSubscriptionAcquire %s", applicationId.c_str());
-    return false;
+    pbnjson::JValue replyObject = pbnjson::Object();
+    replyObject.put("returnValue", true);
+    replyObject.put("result", payload.c_str());
+    std::string reply = replyObject.stringify();
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"sendApplicationResponse: %s", reply.c_str());
+    LSMessageResponse(serviceHandle, message, reply.c_str(), eLSReply, false);
 }
 
 /*
@@ -908,10 +758,5 @@ bool AudioFocusManager::signalTermCaught()
 {
     //TODO
     //broadcastLostToAll(GetLSService());
-    return true;
-}
-
-bool AudioFocusManager::signalToApp(const std::string& appId, const std::string& returnType)
-{
     return true;
 }

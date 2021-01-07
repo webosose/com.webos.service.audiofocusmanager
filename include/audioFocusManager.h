@@ -31,6 +31,7 @@
 #include <sstream>
 #include "messageUtils.h"
 #include "log.h"
+#include "utils.h"
 
 LSHandle *GetLSService();
 
@@ -95,17 +96,13 @@ private:
     pbnjson::JValue getStatusPayload(std::string sessionId = "");
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
+    void sendApplicationResponse(LSHandle *serviceHandle, LSMessage *message, const std::string& payload);
     bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const std::string& sessionId, const std::string& requestType);
     bool checkFeasibility(const std::string& sessionId, const std::string& newRequestType);
     bool updateCurrentAppStatus(const std::string& sessionId, const std::string& newRequestType);
     void updateSessionActiveAppList(const std::string& sessionId, const std::string& appId, const std::string& requestType);
     void updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const std::string& removedRequest);
-    bool subscriptionUtility(const std::string& applicationId, LSHandle *serviceHandle, const char operation, const std::string& signalMessage);
-    bool sendSignal(LSHandle *sh, LSMessage *message, const std::string& signalMessage, LSError *lserror);
-    bool returnErrorText(LSHandle *sh, LSMessage *message, const std::string& errorText, int errorCode);
-    bool unsubscribingApp(const std::string& appId);
-    bool checkSubscription(const std::string& applicationId);
-    bool signalToApp(const std::string& appId, const std::string& returnType);
+    void manageAppSubscription(const std::string& applicationId, const std::string& payload, const char operation);
 };
 
 #endif

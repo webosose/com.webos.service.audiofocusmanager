@@ -33,3 +33,30 @@ void CLSError::Print(const char * where, int line, GLogLevelFlags logLevel)
     }
 }
 
+void LSMessageResponse(LSHandle* handle, LSMessage * message, const char* reply, RESPONSE_TYPE eType, bool isReferenced)
+{
+    CLSError lserror;
+    if (message)
+    {
+        PM_LOG_INFO(MSGID_PARSE_JSON, INIT_KVCOUNT,"AudioD response with params:'%s'", reply);
+        if (eLSReply == eType)
+        {
+            if (handle)
+            {
+                if (!LSMessageReply(handle, message, reply, &lserror))
+                    lserror.Print(__FUNCTION__, __LINE__);
+            }
+        }
+        else if (eLSRespond == eType)
+        {
+            if (!LSMessageRespond(message, reply, &lserror))
+                lserror.Print(__FUNCTION__, __LINE__);
+        }
+        else
+            PM_LOG_ERROR(MSGID_INVALID_INPUT, INIT_KVCOUNT, "Unknown LsReply type: %d",eType);
+        if (isReferenced)
+           LSMessageUnref(message);
+    }
+    else
+        PM_LOG_ERROR(MSGID_DATA_NULL, INIT_KVCOUNT, "LSMessage data is not available to Reply/Respond");
+}

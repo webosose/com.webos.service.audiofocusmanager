@@ -47,7 +47,8 @@ extern PmLogContext audioFocusMgrLogContext;
 #define MSGID_PARSE_JSON                                                     "AUDIOFOCUSMANAGER_PARSE_JSON"                 //Audio focus manager Parse json
 #define MSGID_MALFORMED_JSON                                                 "AUDIOFOCUSMANAGER_MALFORMED_JSON"             //Audio focus manager Malformed json error
 #define MSGID_TEST_FAILED                                                    "AUDIOFOCUSMANAGER_UT_FAILED"                   //Audio focus manager Unittest failed
-
+#define MSGID_INVALID_INPUT                                                  "INVALID_INPUT"                                 //Invalid input params received
+#define MSGID_DATA_NULL                                                      "DATA_NULL"                                     //Null data received in pointer
 
 /// Test macro that will make a critical log entry if the test fails
 #define VERIFY(t) (G_LIKELY(t) || (PM_LOG_ERROR(MSGID_VERIFY_FAILED, INIT_KVCOUNT,\
