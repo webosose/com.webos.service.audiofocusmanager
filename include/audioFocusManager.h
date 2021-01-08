@@ -37,6 +37,7 @@ LSHandle *GetLSService();
 
 #define REQUEST_TYPE_POLICY_CONFIG "audiofocuspolicy.json"
 #define AF_API_GET_STATUS "/getStatus"
+#define AF_API_REQUEST_FOCUS "/requestFocus"
 #define CONFIG_DIR_PATH "/etc/palm/audiofocusmanager"
 #define AF_ERR_CODE_INVALID_SCHEMA (1)
 #define AF_ERR_CODE_UNKNOWN_REQUEST (2)
@@ -70,6 +71,10 @@ public:
     {
         return ((AudioFocusManager *) data)->getStatus(sh, message, NULL);
     }
+    static bool _cancelFunction(LSHandle *sh, LSMessage *message, void *data)
+    {
+       return ((AudioFocusManager *) data)->cancelFunction(sh, message, NULL);
+    }
 
     static AudioFocusManager *getInstance();
     static void deleteInstance();
@@ -91,6 +96,7 @@ private:
     bool releaseFocus(LSHandle *sh, LSMessage *message, void *data);
     bool requestFocus(LSHandle *sh, LSMessage *message, void *data);
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
+    bool cancelFunction(LSHandle *sh, LSMessage *message, void *data);
 
     void broadcastStatusToSubscribers(std::string sessionId);
     pbnjson::JValue getStatusPayload(std::string sessionId = "");

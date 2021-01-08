@@ -185,6 +185,64 @@ bool AudioFocusManager::audioFunctionsRegister(std::string serviceName, GMainLoo
         mLSError.Print(__FUNCTION__,__LINE__);
         return false;
     }
+    if (!LSSubscriptionSetCancelFunction(mServiceHandle, AudioFocusManager::_cancelFunction, this, &mLSError))
+    {
+        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Setting cancelfunction for APIs failed");
+        mLSError.Print(__FUNCTION__,__LINE__);
+        return false;
+    }
+    return true;
+}
+
+bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *data)
+{
+    PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Subscription cancelled");
+    const char* method = LSMessageGetMethod(message);
+    LSMessageJsonParser msg(message, SCHEMA_ANY);
+    if (!msg.parse(__FUNCTION__,sh))
+       return true;
+    const char* appId = LSMessageGetApplicationID(message);
+    if (appId == NULL)
+    {
+        appId = LSMessageGetSenderServiceName(message);
+    }
+    PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Subscription cancelled from app %s", appId);
+    if(method == AF_API_REQUEST_FOCUS)
+    {
+        std::string sessionId;
+        msg.get("sessionId", sessionId);
+        auto itSession = mSessionInfoMap.find(sessionId);
+        if (itSession == mSessionInfoMap.end())
+        {
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New session entry for:%s Request feasible", sessionId.c_str());
+            return true;
+        }
+        SESSION_INFO_T& sessionInfo = itSession->second;
+        for (auto itPaused = sessionInfo.pausedAppList.begin(); \
+            itPaused != sessionInfo.pausedAppList.end(); itPaused++)
+        {
+            if (appId == itPaused->appId)
+            {
+                PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Paused app Killed, remove from list %s Request type: %s", \
+                    appId, itPaused->requestType.c_str());
+                sessionInfo.pausedAppList.erase(itPaused--);
+                return true;
+            }
+        }
+        for (auto itActive = sessionInfo.activeAppList.begin(); itActive != sessionInfo.activeAppList.end(); itActive++)
+        {
+            if (itActive->appId == appId)
+            {
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"Active app Killed: Removing appId: %s Request type: %s", \
+                    appId, itActive->requestType.c_str());
+                std::string requestType = itActive->requestType;
+                sessionInfo.activeAppList.erase(itActive--);
+                //TODO : update a paused app as active when
+                updatePausedAppStatus(sessionInfo, requestType);
+                return true;
+            }
+        }
+    }
     return true;
 }
 
@@ -697,32 +755,37 @@ void AudioFocusManager::manageAppSubscription(const std::string& applicationId, 
             const char* msgJsonArgument = LSMessageGetPayload(iter_message);
             parser.parse(msgJsonArgument, pbnjson::JSchemaFragment("{}"), NULL);
             pbnjson::JValue msgJsonSubArgument = parser.getDom();
-            subscribed_appId = msgJsonSubArgument["appId"].asString();
-            if(!((applicationId).compare(subscribed_appId)))
+            const char* appId = LSMessageGetApplicationID(iter_message);
+            if (appId == NULL)
+            {
+                appId = LSMessageGetSenderServiceName(iter_message);
+            }
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription App id :%s", appId);
+            if(!((applicationId).compare(appId)))
             {
                 switch(operation)
                 {
                     case 's':
                             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription send response:%s",\
-                                subscribed_appId.c_str());
+                                appId);
                             sendApplicationResponse(GetLSService(), iter_message, payload);
                             break;
 
                     case 'n':
                             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription:send response and remove %s",\
-                                subscribed_appId.c_str());
+                                appId);
                             sendApplicationResponse(GetLSService(), iter_message, payload);
                             LSSubscriptionRemove(iter);
                             break;
 
                     case 'r':
                             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription:remove %s",\
-                                subscribed_appId.c_str());
+                                appId);
                             LSSubscriptionRemove(iter);
                             break;
                     case 'c':
                             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription: Check %s",\
-                                subscribed_appId.c_str());
+                                appId);
                             break;
 
                     default:
