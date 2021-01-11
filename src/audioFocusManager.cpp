@@ -45,11 +45,6 @@ void AudioFocusManager::loadAudioFocusManager()
     if(NULL == AFService)
     {
         AFService = new(std::nothrow) AudioFocusManager();
-        return AFService;
-    }
-    else
-    {
-        return AFService;
     }
 }
 
@@ -207,14 +202,14 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
         appId = LSMessageGetSenderServiceName(message);
     }
     PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Subscription cancelled from app %s", appId);
-    if(method == AF_API_REQUEST_FOCUS)
+    if(strncmp(method, AF_API_REQUEST_FOCUS, strlen(AF_API_REQUEST_FOCUS)) == 0)
     {
-        std::string sessionId;
+        int sessionId = -1;
         msg.get("sessionId", sessionId);
         auto itSession = mSessionInfoMap.find(sessionId);
         if (itSession == mSessionInfoMap.end())
         {
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New session entry for:%s Request feasible", sessionId.c_str());
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New session entry for:%d Request feasible", sessionId);
             return true;
         }
         SESSION_INFO_T& sessionInfo = itSession->second;
@@ -256,13 +251,13 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"requestFocus");
 
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3 (PROP(requestType, string), PROP(sessionId, string),
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3 (PROP(requestType, string), PROP(sessionId, integer),
                                     PROP(subscribe, boolean)) REQUIRED_3(requestType, sessionId,subscribe)));
 
     if (!msg.parse(__FUNCTION__,sh))
        return true;
 
-    std::string sessionId ;
+    int sessionId = -1;
     std::string requestName;
     std::string reply;
     bool subscription;
@@ -272,7 +267,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     msg.get("subscribe", subscription);
 
     //TODO: Add validation logic for validation of session ID
-    if (sessionId == "")
+    if (sessionId == -1)
     {
         reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "sessionId cannot be empty");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
@@ -305,8 +300,8 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "requestFocus: sessionId: %s requestType: %s appId %s", \
-        sessionId.c_str(), requestName.c_str(), appId);
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "requestFocus: sessionId: %d requestType: %s appId %s", \
+        sessionId, requestName.c_str(), appId);
     if (checkGrantedAlready(sh, message, appId, sessionId, requestName))
         return true;
     if (!checkFeasibility(sessionId, requestName))
@@ -330,14 +325,14 @@ Functionality of this method:
 ->If it is a duplicate request sends AF_GRANTEDALREADY event to the app.
 */
 bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId,\
-    const std::string& sessionId, const std::string& requestType)
+    const int& sessionId, const std::string& requestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready for appId:%s sessionId:%s requestType:%s",\
-        applicationId.c_str(), sessionId.c_str(), requestType.c_str());
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready for appId:%s sessionId:%d requestType:%s",\
+        applicationId.c_str(), sessionId, requestType.c_str());
     auto it = mSessionInfoMap.find(sessionId);
     if (it == mSessionInfoMap.end())
     {
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"Request from a new session %s", sessionId.c_str());
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"Request from a new session %d", sessionId);
         return false;
     }
     SESSION_INFO_T& sessionInfo = it->second;
@@ -368,10 +363,10 @@ bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, st
 
 /*Functionality of this method:
  * To check if active request types in the requesting session has any request which will not grant the new request type*/
-bool AudioFocusManager::checkFeasibility(const std::string& sessionId, const std::string& newRequestType)
+bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string& newRequestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility for sessionId:%s newRequestType:%s",\
-        sessionId.c_str(), newRequestType.c_str());
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility for sessionId:%d newRequestType:%s",\
+        sessionId, newRequestType.c_str());
     auto itNewRequestPolicy = mAFRequestPolicyInfo.find(newRequestType);
     if (itNewRequestPolicy == mAFRequestPolicyInfo.end())
     {
@@ -382,7 +377,7 @@ bool AudioFocusManager::checkFeasibility(const std::string& sessionId, const std
     auto itSession = mSessionInfoMap.find(sessionId);
     if (itSession == mSessionInfoMap.end())
     {
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New session entry for:%s Request feasible", sessionId.c_str());
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New session entry for:%d Request feasible", sessionId);
         return true;
     }
     SESSION_INFO_T& curSessionInfo = itSession->second;
@@ -411,10 +406,10 @@ bool AudioFocusManager::checkFeasibility(const std::string& sessionId, const std
     return true;
 }
 
-bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, const std::string& newRequestType)
+bool AudioFocusManager::updateCurrentAppStatus(const int& sessionId, const std::string& newRequestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus for sessionId:%s requestType:%s",\
-        sessionId.c_str(), newRequestType.c_str());
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus for sessionId:%d requestType:%s",\
+        sessionId, newRequestType.c_str());
     auto itNewRequestPolicy = mAFRequestPolicyInfo.find(newRequestType);
     if (itNewRequestPolicy == mAFRequestPolicyInfo.end())
     {
@@ -426,8 +421,8 @@ bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, con
     auto itSession = mSessionInfoMap.find(sessionId);
     if (itSession == mSessionInfoMap.end())
     {
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updateCurrentAppStatus: new session requested: %s No need to update app status", \
-            sessionId.c_str());
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updateCurrentAppStatus: new session requested: %d No need to update app status", \
+            sessionId);
         return true;
     }
     SESSION_INFO_T& curSessionInfo = itSession->second;
@@ -437,8 +432,8 @@ bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, con
         const auto& itActiveRequestPolicy = mAFRequestPolicyInfo.find(itActive->requestType);
         if (itActiveRequestPolicy == mAFRequestPolicyInfo.end())
         {
-            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in active list for %s. Skipping", \
-                    sessionId.c_str());
+            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in active list for %d. Skipping", \
+                    sessionId);
             continue;
         }
         REQUEST_TYPE_POLICY_INFO_T& activeRequestPolicy = itActiveRequestPolicy->second;
@@ -471,8 +466,8 @@ bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, con
         const auto& itPausedRequestPolicy = mAFRequestPolicyInfo.find(itPaused->requestType);
         if (itPausedRequestPolicy == mAFRequestPolicyInfo.end())
         {
-            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in paused list for %s. Skipping", \
-                    sessionId.c_str());
+            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in paused list for %d. Skipping", \
+                    sessionId);
             continue;
         }
         if (newRequestPolicy.type == "long")
@@ -488,9 +483,9 @@ bool AudioFocusManager::updateCurrentAppStatus(const std::string& sessionId, con
  * -> Update the session active app list if session already present
  *  ->Create new session Info and update active app list
  */
-void AudioFocusManager::updateSessionActiveAppList(const std::string& sessionId, const std::string& appId, const std::string& requestType)
+void AudioFocusManager::updateSessionActiveAppList(const int& sessionId, const std::string& appId, const std::string& requestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionAppList: sessionId: %s", sessionId.c_str());
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionAppList: sessionId: %d", sessionId);
     APP_INFO_T newAppInfo;
     newAppInfo.appId = appId;
     newAppInfo.requestType = requestType;
@@ -500,8 +495,8 @@ void AudioFocusManager::updateSessionActiveAppList(const std::string& sessionId,
         SESSION_INFO_T newSessionInfo;
         newSessionInfo.activeAppList.push_back(newAppInfo);
         mSessionInfoMap[sessionId] = newSessionInfo;
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionActiveAppList: new session details added. Session: %s", \
-            sessionId.c_str());
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionActiveAppList: new session details added. Session: %d", \
+            sessionId);
         return;
     }
     SESSION_INFO_T& sessionInfo = itSession->second;
@@ -515,10 +510,10 @@ Functionality of this method:
 */
 bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *data)
 {
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(sessionId,string)) REQUIRED_1(sessionId)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(sessionId,integer)) REQUIRED_1(sessionId)));
     if (!msg.parse(__FUNCTION__, sh))
         return true;
-    std::string sessionId;
+    int sessionId = -1;
     std::string reply;
     msg.get("sessionId", sessionId);
 
@@ -533,7 +528,7 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
             return true;
         }
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: sessionId: %s appId: %s", sessionId.c_str(), appId);
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: sessionId: %d appId: %s", sessionId, appId);
     auto itSession = mSessionInfoMap.find(sessionId);
     if (itSession == mSessionInfoMap.end())
     {
@@ -573,8 +568,8 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
         }
     }
 
-    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: appId: %s cannot be found in session: %s" , \
-        appId, sessionId.c_str());
+    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: appId: %s cannot be found in session: %d" , \
+        appId, sessionId);
     reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "Application not registered");
     LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
     return true;
@@ -613,6 +608,7 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
     }
     for (auto itPaused = sessionInfo.pausedAppList.begin(); itPaused != sessionInfo.pausedAppList.end(); itPaused++)
     {
+        //Grant focus to an app in paused app list
         sessionInfo.pausedAppList.push_back(*itPaused);
         sessionInfo.pausedAppList.erase(itPaused--);
     }
@@ -628,12 +624,12 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     CLSError lserror;
     pbnjson::JValue jsonObject = pbnjson::JObject();
 
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(sessionId, string)) REQUIRED_1(sessionId)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(sessionId, integer)) REQUIRED_1(sessionId)));
 
     if (!msg.parse(__FUNCTION__, sh))
         return true;
     bool subscription;
-    std::string sessionId;
+    int sessionId = -1;
 
     msg.get("subscribe",subscription);
     if (LSMessageIsSubscription (message))
@@ -668,7 +664,7 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 /*Functionality of this method
  * TO get the JSON payload for getStatus response in string format
  */
-pbnjson::JValue AudioFocusManager::getStatusPayload(std::string sessionId)
+pbnjson::JValue AudioFocusManager::getStatusPayload(const int& sessionId)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatusPayload");
 
@@ -679,7 +675,7 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(std::string sessionId)
         if (sessionId == sessionInfomap.first)
         {
             SESSION_INFO_T& sessionInfo = sessionInfomap.second;
-            std::string sessionId = sessionInfomap.first;
+            int sessionId = sessionInfomap.first;
             pbnjson::JArray activeAppArray = pbnjson::JArray();
             pbnjson::JArray pausedAppArray = pbnjson::JArray();
             pbnjson::JValue curSession = pbnjson::JObject();
@@ -714,7 +710,7 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(std::string sessionId)
  * Functionality of this method:
  * Notigy /getStatus subscribers on the current AudioFocusManager status
  */
-void AudioFocusManager::broadcastStatusToSubscribers(std::string sessionId)
+void AudioFocusManager::broadcastStatusToSubscribers(int sessionId)
 {
     CLSError lserror;
     std::string reply = getStatusPayload(sessionId).stringify();

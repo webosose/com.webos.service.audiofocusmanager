@@ -43,7 +43,7 @@ typedef struct SessionInfo
 }SESSION_INFO_T;
 
 using RequestPolicyInfoMap = std::map<std::string, REQUEST_TYPE_POLICY_INFO_T>;
-using SessionInfoMap = std::map<std::string, SESSION_INFO_T>;
+using SessionInfoMap = std::map<int, SESSION_INFO_T>;
 
 struct CLSError : public LSError
 {

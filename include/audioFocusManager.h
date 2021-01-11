@@ -37,7 +37,7 @@ LSHandle *GetLSService();
 
 #define REQUEST_TYPE_POLICY_CONFIG "audiofocuspolicy.json"
 #define AF_API_GET_STATUS "/getStatus"
-#define AF_API_REQUEST_FOCUS "/requestFocus"
+#define AF_API_REQUEST_FOCUS "requestFocus"
 #define CONFIG_DIR_PATH "/etc/palm/audiofocusmanager"
 #define AF_ERR_CODE_INVALID_SCHEMA (1)
 #define AF_ERR_CODE_UNKNOWN_REQUEST (2)
@@ -98,15 +98,15 @@ private:
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
     bool cancelFunction(LSHandle *sh, LSMessage *message, void *data);
 
-    void broadcastStatusToSubscribers(std::string sessionId);
-    pbnjson::JValue getStatusPayload(std::string sessionId = "");
+    void broadcastStatusToSubscribers(int sessionId);
+    pbnjson::JValue getStatusPayload(const int& sessionId);
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
     void sendApplicationResponse(LSHandle *serviceHandle, LSMessage *message, const std::string& payload);
-    bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const std::string& sessionId, const std::string& requestType);
-    bool checkFeasibility(const std::string& sessionId, const std::string& newRequestType);
-    bool updateCurrentAppStatus(const std::string& sessionId, const std::string& newRequestType);
-    void updateSessionActiveAppList(const std::string& sessionId, const std::string& appId, const std::string& requestType);
+    bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const int& sessionId, const std::string& requestType);
+    bool checkFeasibility(const int& sessionId, const std::string& newRequestType);
+    bool updateCurrentAppStatus(const int& sessionId, const std::string& newRequestType);
+    void updateSessionActiveAppList(const int& sessionId, const std::string& appId, const std::string& requestType);
     void updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const std::string& removedRequest);
     void manageAppSubscription(const std::string& applicationId, const std::string& payload, const char operation);
 };
