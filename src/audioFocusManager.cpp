@@ -266,8 +266,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     msg.get("requestType", requestName);
     msg.get("subscribe", subscription);
 
-    //TODO: Add validation logic for validation of session ID
-    if (sessionId == -1)
+    if (!validateSessionId(sessionId))
     {
         reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "sessionId cannot be empty");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
@@ -317,6 +316,17 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     updateSessionActiveAppList(sessionId, appId, requestName);
     broadcastStatusToSubscribers(sessionId);
     return true;
+}
+/*
+Functionality of this method:
+Validating the session Id by matching it with the display Id
+*/
+bool AudioFocusManager::validateSessionId(int sessionId)
+{
+    if(sessionId == DISPLAY_ID_0 || sessionId == DISPLAY_ID_1 || sessionId == DISPLAY_ID_2)
+        return true;
+    else
+        return false;
 }
 
 /*

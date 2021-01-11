@@ -43,6 +43,10 @@ LSHandle *GetLSService();
 #define AF_ERR_CODE_UNKNOWN_REQUEST (2)
 #define AF_ERR_CODE_INTERNAL (3)
 
+#define DISPLAY_ID_0 0
+#define DISPLAY_ID_1 1
+#define DISPLAY_ID_2 2
+
 #define LSERROR_CHECK_AND_PRINT(ret)\
     do {              \
     if(ret == false)  \
@@ -98,6 +102,7 @@ private:
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
     bool cancelFunction(LSHandle *sh, LSMessage *message, void *data);
 
+    bool validateSessionId(int sessionId);
     void broadcastStatusToSubscribers(int sessionId);
     pbnjson::JValue getStatusPayload(const int& sessionId);
     bool loadRequestPolicyJsonConfig();
