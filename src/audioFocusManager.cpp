@@ -458,7 +458,7 @@ bool AudioFocusManager::updateCurrentAppStatus(const int& sessionId, const std::
                 curSessionInfo.pausedAppList.push_back(*itActive);
                 curSessionInfo.activeAppList.erase(itActive--);
             }
-            else if (newRequestPolicy.type != "mix")
+            else if (newRequestPolicy.type != "mix" || newRequestPolicy.priority == activeRequestPolicy.priority)
             {
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_LOST to %s", \
                         itActive->appId.c_str());
@@ -616,12 +616,27 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
             return;
         }
     }
+    //If any app is present in pause app list and active app list is empty,
+    //grant focus to last paused app,
+    if (sessionInfo.activeAppList.empty() && !sessionInfo.pausedAppList.empty())
+    {
+        auto itPaused = sessionInfo.pausedAppList.back();
+        sessionInfo.activeAppList.push_back( itPaused);
+        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: send AF_GRANETD to %s", itPaused.appId.c_str());
+        manageAppSubscription(itPaused.appId, "AF_GRANTED", 's');
+        sessionInfo.pausedAppList.pop_back();
+    }
+    /*
     for (auto itPaused = sessionInfo.pausedAppList.begin(); itPaused != sessionInfo.pausedAppList.end(); itPaused++)
     {
+        if (sessionInfo.activeAppList.empty())
+        {
+
+        }
         //Grant focus to an app in paused app list
         sessionInfo.pausedAppList.push_back(*itPaused);
         sessionInfo.pausedAppList.erase(itPaused--);
-    }
+    }*/
     return;
 }
 /*
@@ -656,7 +671,6 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     }
 
     msg.get("sessionId",sessionId);
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"%s : %d", __FUNCTION__, __LINE__);
 
     //TODO : session id validation
     jsonObject.put("returnValue", true);
