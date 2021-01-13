@@ -221,6 +221,7 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
                 PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Paused app Killed, remove from list %s Request type: %s", \
                     appId, itPaused->requestType.c_str());
                 sessionInfo.pausedAppList.erase(itPaused--);
+                broadcastStatusToSubscribers(sessionId);
                 return true;
             }
         }
@@ -234,6 +235,7 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
                 sessionInfo.activeAppList.erase(itActive--);
                 //TODO : update a paused app as active when
                 updatePausedAppStatus(sessionInfo, requestType);
+                broadcastStatusToSubscribers(sessionId);
                 return true;
             }
         }
@@ -592,6 +594,7 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus requestType:%s", removedRequest.c_str());
     const auto& requestInfoIt = mAFRequestPolicyInfo.find(removedRequest);
+    int mixtypeActive = 0;
     if(requestInfoIt == mAFRequestPolicyInfo.end())
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type");
@@ -617,28 +620,65 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
         }
     }
     //If any app is present in pause app list and active app list is empty,
-    //grant focus to last paused app,
+    //grant focus to paused app,
     if (sessionInfo.activeAppList.empty() && !sessionInfo.pausedAppList.empty())
+        pausedAppToActive(sessionInfo);
+    return;
+}
+
+bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo)
+{
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive");
+    if (sessionInfo.pausedAppList.size() == 1)
     {
         auto itPaused = sessionInfo.pausedAppList.back();
-        sessionInfo.activeAppList.push_back( itPaused);
-        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: send AF_GRANETD to %s", itPaused.appId.c_str());
+        sessionInfo.activeAppList.push_back(itPaused);
+        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", itPaused.appId.c_str());
         manageAppSubscription(itPaused.appId, "AF_GRANTED", 's');
         sessionInfo.pausedAppList.pop_back();
     }
-    /*
-    for (auto itPaused = sessionInfo.pausedAppList.begin(); itPaused != sessionInfo.pausedAppList.end(); itPaused++)
+    else
     {
-        if (sessionInfo.activeAppList.empty())
+        auto highPriorityApp = sessionInfo.pausedAppList.end();
+        for (auto itPaused = sessionInfo.pausedAppList.begin(); \
+            itPaused != sessionInfo.pausedAppList.end(); itPaused++)
         {
-
+            auto it = mAFRequestPolicyInfo.find(itPaused->requestType);
+            auto highPriorityReqType = mAFRequestPolicyInfo.find(highPriorityApp->requestType);
+            PM_LOG_DEBUG(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: %d, for loop priority = %d", it->second.priority, highPriorityReqType->second.priority);
+            if (highPriorityReqType->second.priority > it->second.priority)
+            {
+                highPriorityApp = itPaused;
+            }
         }
-        //Grant focus to an app in paused app list
-        sessionInfo.pausedAppList.push_back(*itPaused);
-        sessionInfo.pausedAppList.erase(itPaused--);
-    }*/
-    return;
+        sessionInfo.activeAppList.push_back(*highPriorityApp);
+        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", highPriorityApp->appId.c_str());
+        manageAppSubscription(highPriorityApp->appId, "AF_GRANTED", 's');
+        sessionInfo.pausedAppList.erase(highPriorityApp);
+        auto it = mAFRequestPolicyInfo.find(highPriorityApp->requestType);
+        if (it->second.type == "mix" && !sessionInfo.pausedAppList.empty())
+        {
+            auto highPriorityApp = sessionInfo.pausedAppList.end();
+            for (auto itPaused = sessionInfo.pausedAppList.begin(); \
+                itPaused != sessionInfo.pausedAppList.end(); itPaused++)
+            {
+                auto it = mAFRequestPolicyInfo.find(itPaused->requestType);
+                auto highPriorityReqType = mAFRequestPolicyInfo.find(highPriorityApp->requestType);
+                PM_LOG_DEBUG(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: %d, for loop priority = %d", it->second.priority, highPriorityReqType->second.priority);
+                if (highPriorityReqType->second.priority > it->second.priority)
+                {
+                    highPriorityApp = itPaused;
+                }
+            }
+            sessionInfo.activeAppList.push_back(*highPriorityApp);
+            PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", highPriorityApp->appId.c_str());
+            manageAppSubscription(highPriorityApp->appId, "AF_GRANTED", 's');
+            sessionInfo.pausedAppList.erase(highPriorityApp);
+        }
+    }
+    return true;
 }
+
 /*
 Functionality of this method:
 ->This will return the current status of granted request types in AudioFocusManager for each session

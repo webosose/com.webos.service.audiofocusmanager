@@ -114,6 +114,7 @@ private:
     void updateSessionActiveAppList(const int& sessionId, const std::string& appId, const std::string& requestType);
     void updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const std::string& removedRequest);
     void manageAppSubscription(const std::string& applicationId, const std::string& payload, const char operation);
+    bool pausedAppToActive(SESSION_INFO_T& sessionInfo);
 };
 
 #endif
