@@ -191,7 +191,7 @@ bool AudioFocusManager::audioFunctionsRegister(std::string serviceName, GMainLoo
 
 bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *data)
 {
-    PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Subscription cancelled");
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "Subscription cancelled");
     const char* method = LSMessageGetMethod(message);
     LSMessageJsonParser msg(message, SCHEMA_ANY);
     if (!msg.parse(__FUNCTION__,sh))
@@ -201,8 +201,8 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
     {
         appId = LSMessageGetSenderServiceName(message);
     }
-    PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Subscription cancelled from app %s", appId);
-    if(strncmp(method, AF_API_REQUEST_FOCUS, strlen(AF_API_REQUEST_FOCUS)) == 0)
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "Subscription cancelled from app %s", appId);
+    if(strcmp(method, AF_API_REQUEST_FOCUS) == 0)
     {
         int sessionId = -1;
         msg.get("sessionId", sessionId);
@@ -218,7 +218,7 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
         {
             if (appId == itPaused->appId)
             {
-                PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "Paused app Killed, remove from list %s Request type: %s", \
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "Paused app Killed, remove from list %s Request type: %s", \
                     appId, itPaused->requestType.c_str());
                 sessionInfo.pausedAppList.erase(itPaused--);
                 broadcastStatusToSubscribers(sessionId);
@@ -233,7 +233,6 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
                     appId, itActive->requestType.c_str());
                 std::string requestType = itActive->requestType;
                 sessionInfo.activeAppList.erase(itActive--);
-                //TODO : update a paused app as active when
                 updatePausedAppStatus(sessionInfo, requestType);
                 broadcastStatusToSubscribers(sessionId);
                 return true;
@@ -287,7 +286,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     }
     const auto& it = mAFRequestPolicyInfo.find(requestName);
     if (it != mAFRequestPolicyInfo.end())
-        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Valid request type received");
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "Valid request type received");
     else
     {
         reply = STANDARD_JSON_ERROR(AF_ERR_CODE_UNKNOWN_REQUEST, "Invalid Request Type");
@@ -311,7 +310,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
         return true;
     }
     if (!updateCurrentAppStatus(sessionId, requestName))
-        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "requestFocus: updateCurrentAppStatus Failed");
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "requestFocus: updateCurrentAppStatus Failed");
     sendApplicationResponse(sh, message, "AF_GRANTED");
     if (LSMessageIsSubscription(message))
         LSSubscriptionAdd(sh, "AFSubscriptionList", message, NULL);
@@ -597,12 +596,12 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
     int mixtypeActive = 0;
     if(requestInfoIt == mAFRequestPolicyInfo.end())
     {
-        PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type");
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type");
         return;
     }
     if (requestInfoIt->second.type != "short")
     {
-        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: request type is not short. Nothing to update");
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus: request type is not short. Nothing to update");
         return;
     }
     for( auto activeApp : sessionInfo.activeAppList)
@@ -610,12 +609,12 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
         auto activeRequestInfo = mAFRequestPolicyInfo.find(activeApp.requestType);
         if (activeRequestInfo == mAFRequestPolicyInfo.end())
         {
-            PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type in active app");
+            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type in active app");
             continue;
         }
         if (activeRequestInfo->second.type == "short")
         {
-            PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "updatePausedAppStatus: other short streams active. Nothing to update");
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus: other short streams active. Nothing to update");
             return;
         }
     }
@@ -633,7 +632,7 @@ bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo)
     {
         auto itPaused = sessionInfo.pausedAppList.back();
         sessionInfo.activeAppList.push_back(itPaused);
-        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", itPaused.appId.c_str());
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", itPaused.appId.c_str());
         manageAppSubscription(itPaused.appId, "AF_GRANTED", 's');
         sessionInfo.pausedAppList.pop_back();
     }
@@ -645,14 +644,14 @@ bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo)
         {
             auto it = mAFRequestPolicyInfo.find(itPaused->requestType);
             auto highPriorityReqType = mAFRequestPolicyInfo.find(highPriorityApp->requestType);
-            PM_LOG_DEBUG(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: %d, for loop priority = %d", it->second.priority, highPriorityReqType->second.priority);
+            PM_LOG_DEBUG("pausedAppToActive: %d, for loop priority = %d", it->second.priority, highPriorityReqType->second.priority);
             if (highPriorityReqType->second.priority > it->second.priority)
             {
                 highPriorityApp = itPaused;
             }
         }
         sessionInfo.activeAppList.push_back(*highPriorityApp);
-        PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", highPriorityApp->appId.c_str());
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", highPriorityApp->appId.c_str());
         manageAppSubscription(highPriorityApp->appId, "AF_GRANTED", 's');
         sessionInfo.pausedAppList.erase(highPriorityApp);
         auto it = mAFRequestPolicyInfo.find(highPriorityApp->requestType);
@@ -664,14 +663,14 @@ bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo)
             {
                 auto it = mAFRequestPolicyInfo.find(itPaused->requestType);
                 auto highPriorityReqType = mAFRequestPolicyInfo.find(highPriorityApp->requestType);
-                PM_LOG_DEBUG(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: %d, for loop priority = %d", it->second.priority, highPriorityReqType->second.priority);
+                PM_LOG_DEBUG("pausedAppToActive: %d, for loop priority = %d", it->second.priority, highPriorityReqType->second.priority);
                 if (highPriorityReqType->second.priority > it->second.priority)
                 {
                     highPriorityApp = itPaused;
                 }
             }
             sessionInfo.activeAppList.push_back(*highPriorityApp);
-            PM_LOG_INFO(MSGID_INIT, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", highPriorityApp->appId.c_str());
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", highPriorityApp->appId.c_str());
             manageAppSubscription(highPriorityApp->appId, "AF_GRANTED", 's');
             sessionInfo.pausedAppList.erase(highPriorityApp);
         }
@@ -802,7 +801,7 @@ void AudioFocusManager::manageAppSubscription(const std::string& applicationId, 
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"notifyApplication: applicationId:%s payload:%s operation:%c",\
         applicationId.c_str(), payload.c_str(), operation);
     std::string subscribed_appId;
-    pbnjson::JDomParser parser(NULL);
+    pbnjson::JDomParser parser;
     LSSubscriptionIter *iter = NULL;
     bool retValAcquire = false;
     CLSError lserror;
@@ -813,7 +812,7 @@ void AudioFocusManager::manageAppSubscription(const std::string& applicationId, 
         {
             LSMessage *iter_message = LSSubscriptionNext(iter);
             const char* msgJsonArgument = LSMessageGetPayload(iter_message);
-            parser.parse(msgJsonArgument, pbnjson::JSchemaFragment("{}"), NULL);
+            parser.parse(msgJsonArgument, pbnjson::JSchemaFragment("{}"));
             pbnjson::JValue msgJsonSubArgument = parser.getDom();
             const char* appId = LSMessageGetApplicationID(iter_message);
             if (appId == NULL)
