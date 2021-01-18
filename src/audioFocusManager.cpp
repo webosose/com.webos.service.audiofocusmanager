@@ -253,7 +253,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"requestFocus");
 
     LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3 (PROP(requestType, string), PROP(sessionId, integer),
-                                    PROP(subscribe, boolean)) REQUIRED_3(requestType, sessionId,subscribe)));
+                                    PROP(subscribe, boolean)) REQUIRED_3(requestType, sessionId, subscribe)));
 
     if (!msg.parse(__FUNCTION__,sh))
        return true;
@@ -269,7 +269,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
 
     if (!validateSessionId(sessionId))
     {
-        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "sessionId cannot be empty");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_SESSION_ID, "Invalid sessionId");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
@@ -528,6 +528,12 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
     std::string reply;
     msg.get("sessionId", sessionId);
 
+    if (!validateSessionId(sessionId))
+    {
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_SESSION_ID, "Invalid sessionId");
+        LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
+        return true;
+    }
     const char* appId = LSMessageGetApplicationID(message);
     if (appId == NULL)
     {
@@ -687,14 +693,20 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus");
     CLSError lserror;
     pbnjson::JValue jsonObject = pbnjson::JObject();
-
+    std::string reply;
     LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(sessionId, integer)) REQUIRED_1(sessionId)));
 
     if (!msg.parse(__FUNCTION__, sh))
         return true;
     bool subscription;
     int sessionId = -1;
-
+    msg.get("sessionId",sessionId);
+    if (!validateSessionId(sessionId))
+    {
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_SESSION_ID, "Invalid sessionId");
+        LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
+        return true;
+    }
     msg.get("subscribe",subscription);
     if (LSMessageIsSubscription (message))
     {
@@ -708,10 +720,6 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     {
         jsonObject.put("subscribed", false);
     }
-
-    msg.get("sessionId",sessionId);
-
-    //TODO : session id validation
     jsonObject.put("returnValue", true);
     jsonObject.put("audioFocusStatus", getStatusPayload(sessionId));
 

@@ -39,9 +39,11 @@ LSHandle *GetLSService();
 #define AF_API_GET_STATUS "/getStatus"
 #define AF_API_REQUEST_FOCUS "requestFocus"
 #define CONFIG_DIR_PATH "/etc/palm/audiofocusmanager"
-#define AF_ERR_CODE_INVALID_SCHEMA (1)
-#define AF_ERR_CODE_UNKNOWN_REQUEST (2)
-#define AF_ERR_CODE_INTERNAL (3)
+
+#define AF_ERR_CODE_INVALID_SCHEMA 1
+#define AF_ERR_CODE_UNKNOWN_REQUEST 2
+#define AF_ERR_CODE_INTERNAL 3
+#define AF_ERR_CODE_INVALID_SESSION_ID 4
 
 #define DISPLAY_ID_0 0
 #define DISPLAY_ID_1 1
