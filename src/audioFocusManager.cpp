@@ -459,7 +459,7 @@ bool AudioFocusManager::updateCurrentAppStatus(const int& sessionId, const std::
                 curSessionInfo.pausedAppList.push_back(*itActive);
                 curSessionInfo.activeAppList.erase(itActive--);
             }
-            else if (newRequestPolicy.type != "mix" || newRequestPolicy.priority == activeRequestPolicy.priority)
+            else if (newRequestPolicy.type != "mix")
             {
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_LOST to %s", \
                         itActive->appId.c_str());
