@@ -1,7 +1,7 @@
 {
     "requestType": [
                 {"request": "AFREQUEST_GAIN", "priority":5, "type":"long"},
-                {"request": "AFREQUEST_MIX", "priority":3, "type":"mix"},
+                {"request": "AFREQUEST_TRANSIENT_MAY_DUCK", "priority":3, "type":"mix"},
                 {"request": "AFREQUEST_CALL", "priority":1, "type":"short"},
                 {"request": "AFREQUEST_RECORD", "priority":2, "type":"short"},
                 {"request": "AFREQUEST_TRANSIENT", "priority":4, "type":"short"}
