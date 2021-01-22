@@ -1,9 +1,39 @@
 {
     "requestType": [
-                {"request": "AFREQUEST_GAIN", "priority":5, "type":"long"},
-                {"request": "AFREQUEST_TRANSIENT_MAY_DUCK", "priority":3, "type":"mix"},
-                {"request": "AFREQUEST_CALL", "priority":1, "type":"short"},
-                {"request": "AFREQUEST_RECORD", "priority":2, "type":"short"},
-                {"request": "AFREQUEST_TRANSIENT", "priority":4, "type":"short"}
-            ]
+                       {
+                           "request":"AFREQUEST_GAIN", "priority":5,
+                               "incoming":[
+                                              {"AFREQUEST_TRANSIENT_MAY_DUCK":"mix"}, {"AFREQUEST_TRANSIENT":"pause"},
+                                              {"AFREQUEST_CALL":"pause"}, {"AFREQUEST_RECORD":"pause"}, {"AFREQUEST_GAIN":"lost"}
+                                          ]
+                       },
+                       {
+                           "request":"AFREQUEST_TRANSIENT", "priority":4,
+                               "incoming":[
+                                              {"AFREQUEST_TRANSIENT_MAY_DUCK":"mix"}, {"AFREQUEST_CALL":"lost"},
+                                              {"AFREQUEST_RECORD":"lost"}, {"AFREQUEST_TRANSIENT":"lost"}
+                                          ]
+                       },
+                       {
+                           "request":"AFREQUEST_CALL", "priority":1,
+                               "incoming":[
+                                              {"AFREQUEST_TRANSIENT_MAY_DUCK":"mix"}, {"AFREQUEST_TRANSIENT":"mix"},
+                                              {"AFREQUEST_RECORD":"mix"}, {"AFREQUEST_CALL":"lost"}
+                                          ]
+                       },
+                       {
+                           "request":"AFREQUEST_RECORD", "priority":2,
+                               "incoming":[
+                                              {"AFREQUEST_TRANSIENT_MAY_DUCK":"mix"}, {"AFREQUEST_CALL":"lost"},
+                                              {"AFREQUEST_TRANSIENT":"mix"}, {"AFREQUEST_RECORD":"lost"}
+                                          ]
+                      },
+                      {
+                          "request":"AFREQUEST_TRANSIENT_MAY_DUCK", "priority":3,
+                              "incoming":[
+                                             {"AFREQUEST_CALL":"mix"}, {"AFREQUEST_TRANSIENT":"mix"},
+                                             {"AFREQUEST_GAIN":"mix"}, {"AFREQUEST_RECORD":"mix"}, {"AFREQUEST_TRANSIENT_MAY_DUCK":"mix"}
+                                         ]
+                      }
+               ]
 }

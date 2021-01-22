@@ -130,12 +130,12 @@ bool AudioFocusManager::loadRequestPolicyJsonConfig()
         REQUEST_TYPE_POLICY_INFO_T stPolicyInfo;
         std::string requestType;
         int priority;
-        std::string type;
         if (elements["request"].asString(requestType) == CONV_OK)
         {
             stPolicyInfo.priority = elements["priority"].asNumber<int>();
-            if (elements["type"].asString(type) == CONV_OK)
-                stPolicyInfo.type = type;
+            pbnjson::JValue incomingRequestInfo = elements["incoming"];
+            if (incomingRequestInfo.isArray())
+                stPolicyInfo.incomingRequestInfo = incomingRequestInfo;
             mAFRequestPolicyInfo[requestType] = stPolicyInfo;
         }
         else
@@ -152,8 +152,8 @@ void AudioFocusManager::printRequestPolicyJsonInfo()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"printRequestPolicyJsonInfo");
     for (const auto& it : mAFRequestPolicyInfo)
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "RequestType: %s  Priority: %d Type: %s", it.first.c_str(), \
-            it.second.priority, it.second.type.c_str());
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "RequestType: %s  Priority: %d incomingRequestInfo: %s", it.first.c_str(), \
+            it.second.priority, it.second.incomingRequestInfo.stringify().c_str());
 }
 
 /*
@@ -404,13 +404,14 @@ bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string
 
         }
         REQUEST_TYPE_POLICY_INFO_T& activeRequestPolicy = itActiveRequestPolicy->second;
-        if (activeRequestPolicy.priority < newRequestPolicy.priority && \
+        //TODO
+        /*if (activeRequestPolicy.priority < newRequestPolicy.priority && \
                 activeRequestPolicy.type != "mix")
         {
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: newrequestType: %s cannot be granted due to active request: %s", \
                 newRequestType.c_str(), activeRequest.c_str());
             return false;
-        }
+        }*/
     }
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New requestType: %s shall be approved", \
         newRequestType.c_str());
@@ -448,7 +449,8 @@ bool AudioFocusManager::updateCurrentAppStatus(const int& sessionId, const std::
             continue;
         }
         REQUEST_TYPE_POLICY_INFO_T& activeRequestPolicy = itActiveRequestPolicy->second;
-        if (activeRequestPolicy.priority >= newRequestPolicy.priority)
+        //TODO
+        /*if (activeRequestPolicy.priority >= newRequestPolicy.priority)
         {
             if (newRequestPolicy.type == "short" && \
                    (activeRequestPolicy.type == "long" || activeRequestPolicy.type == "mix"))
@@ -469,10 +471,11 @@ bool AudioFocusManager::updateCurrentAppStatus(const int& sessionId, const std::
             else
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: App can mix and play %s", \
                     itActive->appId.c_str());
-        }
+        }*/
     }
+    //TODO
     //Update paused apps list based on new request
-    for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
+    /*for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
     {
         const auto& itPausedRequestPolicy = mAFRequestPolicyInfo.find(itPaused->requestType);
         if (itPausedRequestPolicy == mAFRequestPolicyInfo.end())
@@ -486,7 +489,7 @@ bool AudioFocusManager::updateCurrentAppStatus(const int& sessionId, const std::
             manageAppSubscription(itPaused->appId, "AF_LOST", 'n');
             curSessionInfo.pausedAppList.erase(itPaused--);
         }
-    }
+    }*/
     return true;
 }
 
@@ -605,7 +608,8 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus: unknown request type");
         return;
     }
-    if (requestInfoIt->second.type != "short")
+    //TODO
+    /*if (requestInfoIt->second.type != "short")
     {
         PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus: request type is not short. Nothing to update");
         return;
@@ -623,7 +627,7 @@ void AudioFocusManager::updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updatePausedAppStatus: other short streams active. Nothing to update");
             return;
         }
-    }
+    }*/
     //If any app is present in pause app list and active app list is empty,
     //grant focus to paused app,
     if (sessionInfo.activeAppList.empty() && !sessionInfo.pausedAppList.empty())
@@ -661,7 +665,8 @@ bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo)
         manageAppSubscription(highPriorityApp->appId, "AF_GRANTED", 's');
         sessionInfo.pausedAppList.erase(highPriorityApp);
         auto it = mAFRequestPolicyInfo.find(highPriorityApp->requestType);
-        if (it->second.type == "mix" && !sessionInfo.pausedAppList.empty())
+        //TODO
+        /*if (it->second.type == "mix" && !sessionInfo.pausedAppList.empty())
         {
             auto highPriorityApp = sessionInfo.pausedAppList.end();
             for (auto itPaused = sessionInfo.pausedAppList.begin(); \
@@ -679,7 +684,7 @@ bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo)
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", highPriorityApp->appId.c_str());
             manageAppSubscription(highPriorityApp->appId, "AF_GRANTED", 's');
             sessionInfo.pausedAppList.erase(highPriorityApp);
-        }
+        }*/
     }
     return true;
 }

@@ -23,17 +23,19 @@
 #include <map>
 #include <string>
 #include <list>
+#include <pbnjson.hpp>
 
 typedef struct RequestTypePolicyInfo
 {
     int priority {-1};
-    std::string type;
+    pbnjson::JValue incomingRequestInfo {pbnjson::Array()};
 }REQUEST_TYPE_POLICY_INFO_T;
 
 typedef struct AppInfo
 {
     std::string appId;
     std::string requestType;
+    std::string streamType;
 }APP_INFO_T;
 
 typedef struct SessionInfo
