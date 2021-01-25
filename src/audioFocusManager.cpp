@@ -252,8 +252,8 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"requestFocus");
 
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3 (PROP(requestType, string), PROP(sessionId, integer),
-                                    PROP(subscribe, boolean)) REQUIRED_3(requestType, sessionId, subscribe)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_4 (PROP(requestType, string), PROP(sessionId, integer),
+                                    PROP(subscribe, boolean), PROP(streamType, string)) REQUIRED_4(requestType, sessionId, subscribe, streamType)));
 
     if (!msg.parse(__FUNCTION__,sh))
        return true;
@@ -262,10 +262,12 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     std::string requestName;
     std::string reply;
     bool subscription;
+    std::string streamType;
 
     msg.get("sessionId", sessionId);
     msg.get("requestType", requestName);
     msg.get("subscribe", subscription);
+    msg.get("streamType", streamType);
 
     if (!validateSessionId(sessionId))
     {
@@ -300,8 +302,8 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "requestFocus: sessionId: %d requestType: %s appId %s", \
-        sessionId, requestName.c_str(), appId);
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "requestFocus: sessionId: %d requestType: %s appId: %s streamType: %s", \
+        sessionId, requestName.c_str(), appId, streamType.c_str());
     if (checkGrantedAlready(sh, message, appId, sessionId, requestName))
         return true;
     if (!checkFeasibility(sessionId, requestName))
@@ -524,12 +526,14 @@ Functionality of this method:
 */
 bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *data)
 {
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(sessionId,integer)) REQUIRED_1(sessionId)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(sessionId, integer), PROP(streamType, string)) REQUIRED_2(sessionId, streamType)));
     if (!msg.parse(__FUNCTION__, sh))
         return true;
     int sessionId = -1;
     std::string reply;
+    std::string streamType;
     msg.get("sessionId", sessionId);
+    msg.get("streamType", streamType);
 
     if (!validateSessionId(sessionId))
     {
@@ -548,7 +552,7 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
             return true;
         }
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: sessionId: %d appId: %s", sessionId, appId);
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: sessionId: %d appId: %s streamType: %s", sessionId, appId, streamType.c_str());
     auto itSession = mSessionInfoMap.find(sessionId);
     if (itSession == mSessionInfoMap.end())
     {
@@ -588,8 +592,8 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
         }
     }
 
-    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: appId: %s cannot be found in session: %d" , \
-        appId, sessionId);
+    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: appId: %s, streamType: %s is not found in session: %d" , \
+        appId, streamType.c_str(), sessionId);
     reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "Application not registered");
     LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
     return true;
@@ -699,13 +703,16 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     CLSError lserror;
     pbnjson::JValue jsonObject = pbnjson::JObject();
     std::string reply;
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(sessionId, integer)) REQUIRED_1(sessionId)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3(PROP(subscribe, boolean), PROP(sessionId, integer), PROP(streamType, string))
+        REQUIRED_2(sessionId, streamType)));
 
     if (!msg.parse(__FUNCTION__, sh))
         return true;
     bool subscription;
     int sessionId = -1;
-    msg.get("sessionId",sessionId);
+    std::string streamType;
+    msg.get("sessionId", sessionId);
+    msg.get("streamType", streamType);
     if (!validateSessionId(sessionId))
     {
         reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_SESSION_ID, "Invalid sessionId");
@@ -733,7 +740,7 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"sendSignal:LSMessageReply Failed");
         return false;
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus: Succesfully sent response");
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus: Succesfully sent response, streamType: %s sessionId:%d", streamType.c_str(), sessionId);
     return true;
 }
 
