@@ -311,8 +311,6 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
         sendApplicationResponse(sh, message, "AF_CANNOTBEGRANTED");
         return true;
     }
-    if (!updateCurrentAppStatus(sessionId, requestName))
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "requestFocus: updateCurrentAppStatus Failed");
     sendApplicationResponse(sh, message, "AF_GRANTED");
     if (LSMessageIsSubscription(message))
         LSSubscriptionAdd(sh, "AFSubscriptionList", message, NULL);
@@ -380,13 +378,6 @@ bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility for sessionId:%d newRequestType:%s",\
         sessionId, newRequestType.c_str());
-    auto itNewRequestPolicy = mAFRequestPolicyInfo.find(newRequestType);
-    if (itNewRequestPolicy == mAFRequestPolicyInfo.end())
-    {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New request type policy cannot be found");
-        return false;
-    }
-    REQUEST_TYPE_POLICY_INFO_T& newRequestPolicy = itNewRequestPolicy->second;
     auto itSession = mSessionInfoMap.find(sessionId);
     if (itSession == mSessionInfoMap.end())
     {
@@ -394,105 +385,126 @@ bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string
         return true;
     }
     SESSION_INFO_T& curSessionInfo = itSession->second;
-    //Check feasiblity in activeAppList
-    for (const auto& itActive : curSessionInfo.activeAppList)
+    //Check feasiblity in activeAppList pair to pair
+    if (checkIncomingPair(newRequestType, curSessionInfo.activeAppList))
     {
-        std::string activeRequest = itActive.requestType;
-        auto itActiveRequestPolicy = mAFRequestPolicyInfo.find(activeRequest);
-        if (itActiveRequestPolicy == mAFRequestPolicyInfo.end())
+        for (auto itActive = curSessionInfo.activeAppList.begin(); itActive != curSessionInfo.activeAppList.end(); itActive++)
         {
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: Invalid request type entry. Skipping...");
-            continue;
-
+            auto itActiveRequestPolicy = mAFRequestPolicyInfo.find(itActive->requestType);
+            if (itActiveRequestPolicy != mAFRequestPolicyInfo.end())
+            {
+                REQUEST_TYPE_POLICY_INFO_T& activeRequestPolicy = itActiveRequestPolicy->second;
+                std::string policyAction = getFocusPolicyType(newRequestType, activeRequestPolicy.incomingRequestInfo);
+                if ("pause" == policyAction)
+                {
+                    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: send AF_PAUSE to %s", \
+                        itActive->appId.c_str());
+                    manageAppSubscription(itActive->appId, "AF_PAUSE", 's');
+                    curSessionInfo.pausedAppList.push_back(*itActive);
+                    curSessionInfo.activeAppList.erase(itActive--);
+                }
+                else if("lost" == policyAction)
+                {
+                    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: send AF_LOST to %s", \
+                        itActive->appId.c_str());
+                    manageAppSubscription(itActive->appId, "AF_LOST", 'n');
+                    curSessionInfo.activeAppList.erase(itActive--);
+                }
+                else
+                    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: App can mix and play %s", \
+                        itActive->appId.c_str());
+            }
+            else
+                PM_LOG_WARNING(MSGID_CORE, INIT_KVCOUNT, "checkFeasibility requestType:%s not found in mAFRequestPolicyInfo", itActive->requestType.c_str());
         }
-        REQUEST_TYPE_POLICY_INFO_T& activeRequestPolicy = itActiveRequestPolicy->second;
-        //TODO
-        /*if (activeRequestPolicy.priority < newRequestPolicy.priority && \
-                activeRequestPolicy.type != "mix")
-        {
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: newrequestType: %s cannot be granted due to active request: %s", \
-                newRequestType.c_str(), activeRequest.c_str());
-            return false;
-        }*/
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New requestType: %s shall be approved", \
-        newRequestType.c_str());
+    else
+    {
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: newRequestType cannot be granted");
+        return false;
+    }
+    //Check feasiblity in pausedAppList pair to pair
+    //Not checking for incoming list availabiloty for incoming request type
+    for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
+    {
+        auto itPausedRequestPolicy = mAFRequestPolicyInfo.find(itPaused->requestType);
+        if (itPausedRequestPolicy != mAFRequestPolicyInfo.end())
+        {
+            REQUEST_TYPE_POLICY_INFO_T& pausedRequestPolicy = itPausedRequestPolicy->second;
+            std::string policyAction = getFocusPolicyType(newRequestType, pausedRequestPolicy.incomingRequestInfo);
+            if ("lost" == policyAction)
+            {
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: send AF_PAUSE to %s", \
+                    itPaused->appId.c_str());
+                manageAppSubscription(itPaused->appId, "AF_LOST", 's');
+                curSessionInfo.pausedAppList.erase(itPaused--);
+            }
+            else
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: App can mix and play or already paused%s", \
+                    itPaused->appId.c_str());
+        }
+        else
+            PM_LOG_WARNING(MSGID_CORE, INIT_KVCOUNT, "checkFeasibility requestType:%s not found in mAFRequestPolicyInfo", itPaused->requestType.c_str());
+    }
     return true;
 }
 
-bool AudioFocusManager::updateCurrentAppStatus(const int& sessionId, const std::string& newRequestType)
+bool AudioFocusManager::checkIncomingPair(const std::string& newRequestType, const std::list<APP_INFO_T>& appList)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus for sessionId:%d requestType:%s",\
-        sessionId, newRequestType.c_str());
-    auto itNewRequestPolicy = mAFRequestPolicyInfo.find(newRequestType);
-    if (itNewRequestPolicy == mAFRequestPolicyInfo.end())
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkIncomingPair: newRequestType:%s", newRequestType.c_str());
+    bool isPairFound = false;
+    for (auto itActive = appList.begin(); itActive != appList.end(); itActive++)
     {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: New request policy cannot be found");
-        return false;
-    }
-
-    REQUEST_TYPE_POLICY_INFO_T& newRequestPolicy = itNewRequestPolicy->second;
-    auto itSession = mSessionInfoMap.find(sessionId);
-    if (itSession == mSessionInfoMap.end())
-    {
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "updateCurrentAppStatus: new session requested: %d No need to update app status", \
-            sessionId);
-        return true;
-    }
-    SESSION_INFO_T& curSessionInfo = itSession->second;
-    //Update active app list based on new request
-    for (auto itActive = curSessionInfo.activeAppList.begin(); itActive != curSessionInfo.activeAppList.end(); itActive++)
-    {
-        const auto& itActiveRequestPolicy = mAFRequestPolicyInfo.find(itActive->requestType);
-        if (itActiveRequestPolicy == mAFRequestPolicyInfo.end())
+        auto itActiveRequestPolicy = mAFRequestPolicyInfo.find(itActive->requestType);
+        if (itActiveRequestPolicy != mAFRequestPolicyInfo.end())
         {
-            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in active list for %d. Skipping", \
-                    sessionId);
-            continue;
-        }
-        REQUEST_TYPE_POLICY_INFO_T& activeRequestPolicy = itActiveRequestPolicy->second;
-        //TODO
-        /*if (activeRequestPolicy.priority >= newRequestPolicy.priority)
-        {
-            if (newRequestPolicy.type == "short" && \
-                   (activeRequestPolicy.type == "long" || activeRequestPolicy.type == "mix"))
+            REQUEST_TYPE_POLICY_INFO_T& activeRequestPolicy = itActiveRequestPolicy->second;
+            if (activeRequestPolicy.incomingRequestInfo.isArray())
             {
-                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_PAUSE to %s", \
-                    itActive->appId.c_str());
-                manageAppSubscription(itActive->appId, "AF_PAUSE", 's');
-                curSessionInfo.pausedAppList.push_back(*itActive);
-                curSessionInfo.activeAppList.erase(itActive--);
-            }
-            else if (newRequestPolicy.type != "mix")
-            {
-                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: send AF_LOST to %s", \
-                        itActive->appId.c_str());
-                manageAppSubscription(itActive->appId, "AF_LOST", 'n');
-                curSessionInfo.activeAppList.erase(itActive--);
+                for (const pbnjson::JValue& elements : activeRequestPolicy.incomingRequestInfo.items())
+                {
+                    if (elements.hasKey(newRequestType))
+                    {
+                        isPairFound = true;
+                        break;
+                    }
+                }
             }
             else
-                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: App can mix and play %s", \
-                    itActive->appId.c_str());
-        }*/
+                PM_LOG_WARNING(MSGID_CORE, INIT_KVCOUNT,"checkIncomingPair incomingRequestInfo not an array");
+        }
+        else
+            PM_LOG_WARNING(MSGID_CORE, INIT_KVCOUNT,"checkIncomingPair requestType not found:%s", itActive->requestType.c_str());
+        if (isPairFound)
+            isPairFound = false;
+        else
+            return false;
     }
-    //TODO
-    //Update paused apps list based on new request
-    /*for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
-    {
-        const auto& itPausedRequestPolicy = mAFRequestPolicyInfo.find(itPaused->requestType);
-        if (itPausedRequestPolicy == mAFRequestPolicyInfo.end())
-        {
-            PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"updateCurrentAppStatus: Invalid requestType in paused list for %d. Skipping", \
-                    sessionId);
-            continue;
-        }
-        if (newRequestPolicy.type == "long")
-        {
-            manageAppSubscription(itPaused->appId, "AF_LOST", 'n');
-            curSessionInfo.pausedAppList.erase(itPaused--);
-        }
-    }*/
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkIncomingPair found in the active list");
     return true;
+}
+
+std::string AudioFocusManager::getFocusPolicyType(const std::string& newRequestType, const pbnjson::JValue& incomingRequestInfo)
+{
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getFocusPolicyType: newRequestType:%s incomingRequestInfo:%s", \
+        newRequestType.c_str(), incomingRequestInfo.stringify().c_str());
+    std::string focusType;
+    if (incomingRequestInfo.isArray())
+    {
+        for (const pbnjson::JValue& elements : incomingRequestInfo.items())
+        {
+            if (elements.hasKey(newRequestType))
+            {
+                if (elements[newRequestType].asString(focusType) == CONV_OK)
+                    return focusType;
+                else
+                    PM_LOG_WARNING(MSGID_CORE, INIT_KVCOUNT,"getFocusPolicyType: focusType could not be extracted");
+            }
+        }
+    }
+    else
+        PM_LOG_WARNING(MSGID_CORE, INIT_KVCOUNT,"getFocusPolicyType: incomingRequestInfo is not an array");
+    return focusType;
 }
 
 /*Functionality of this methos:
