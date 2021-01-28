@@ -113,10 +113,10 @@ private:
     bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const int& sessionId, const std::string& requestType);
     bool checkFeasibility(const int& sessionId, const std::string& newRequestType);
     void updateSessionActiveAppList(const int& sessionId, const std::string& appId, const std::string& requestType);
-    void updatePausedAppStatus(SESSION_INFO_T& sessionInfo, const std::string& removedRequest);
     void manageAppSubscription(const std::string& applicationId, const std::string& payload, const char operation);
-    bool pausedAppToActive(SESSION_INFO_T& sessionInfo);
     bool checkIncomingPair(const std::string& newRequestType, const std::list<APP_INFO_T>& appList);
+    bool pausedAppToActive(SESSION_INFO_T& sessionInfo, const std::string& removedRequest);
+    bool isIncomingPairRequestTypeActive(const std::string& requestType, const SESSION_INFO_T& sessionInfo);
     std::string getFocusPolicyType(const std::string& newRequestType, const pbnjson::JValue& incomingRequestInfo);
 };
 
