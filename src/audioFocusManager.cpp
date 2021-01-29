@@ -752,7 +752,7 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(const int& sessionId)
                 activeApp.put("requestType", activeAppInfo.requestType);
                 activeAppArray.append(activeApp);
             }
-            curSession.put("AFactiveRequests",activeAppArray);
+            curSession.put("activeRequests",activeAppArray);
 
             for (auto pausedAppInfo : sessionInfo.pausedAppList)
             {
