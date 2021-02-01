@@ -151,7 +151,7 @@ bool AudioFocusManager::loadRequestPolicyJsonConfig()
 void AudioFocusManager::printRequestPolicyJsonInfo()
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"printRequestPolicyJsonInfo");
-    for (const auto& it : mAFRequestPolicyInfo)
+    for (auto& it : mAFRequestPolicyInfo)
         PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "RequestType: %s  Priority: %d incomingRequestInfo: %s", it.first.c_str(), \
             it.second.priority, it.second.incomingRequestInfo.stringify().c_str());
 }
@@ -486,8 +486,9 @@ bool AudioFocusManager::checkIncomingPair(const std::string& newRequestType, con
 
 std::string AudioFocusManager::getFocusPolicyType(const std::string& newRequestType, const pbnjson::JValue& incomingRequestInfo)
 {
+    pbnjson::JValue requestInfo = incomingRequestInfo;
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getFocusPolicyType: newRequestType:%s incomingRequestInfo:%s", \
-        newRequestType.c_str(), incomingRequestInfo.stringify().c_str());
+        newRequestType.c_str(), requestInfo.stringify().c_str());
     std::string focusType;
     if (incomingRequestInfo.isArray())
     {
