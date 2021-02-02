@@ -49,6 +49,18 @@ LSHandle *GetLSService();
 #define DISPLAY_ID_1 1
 #define DISPLAY_ID_2 2
 
+#if defined(WEBOS_SOC_AUTO)
+#define UNKNOWN_SESSION_ID -1
+#define HOST_SESSION        "host"
+#define AVN_SESSION         "AVN"
+#define RSE_LEFT_SESSION    "RSE-L"
+#define RSE_RIGHT_SESSION   "RSE-R"
+#define MAX_SESSIONS        3
+
+#define SESSION_MANAGER "com.webos.service.sessionmanager"
+#define GET_SESSION_LIST      "luna://com.webos.service.sessionmanager/getSessionList"
+#endif
+
 #define LSERROR_CHECK_AND_PRINT(ret)\
     do {              \
     if(ret == false)  \
@@ -89,14 +101,22 @@ public:
     bool signalTermCaught();
     bool audioFunctionsRegister(std::string srvcname, GMainLoop *mainLoop, LSHandle *msvcHandle);
     static LSHandle *mServiceHandle;
-
+#if defined(WEBOS_SOC_AUTO)
+    static bool sessionListCallback(LSHandle *lshandle, LSMessage *message, void *ctx);
+    static bool serviceStatusCallBack( LSHandle *sh, const char *serviceName, bool connected, void *ctx);
+#endif
 private:
 
     RequestPolicyInfoMap mAFRequestPolicyInfo;
     DisplayInfoMap mDisplayInfoMap;
     static AudioFocusManager *AFService;
     static LSMethod rootMethod[];
-
+#if defined(WEBOS_SOC_AUTO)
+    mapSessionInfo mSessionInfoMap;
+    void readSessionInfo(LSMessage *message);
+    void printSessionInfo();
+    int getSessionDisplayId(const std::string &sessionInfo);
+#endif
     AudioFocusManager();
 
     bool releaseFocus(LSHandle *sh, LSMessage *message, void *data);

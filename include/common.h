@@ -66,4 +66,20 @@ typedef enum ResponseType
     eLSRespond
 }RESPONSE_TYPE;
 
+typedef struct sessionInfo
+{
+    int displayId;
+    std::string deviceType;
+    std::string deviceSetId;
+    sessionInfo()
+    {
+        displayId = 0;
+        deviceType = "";
+        deviceSetId = "";
+    }
+}SESSION_INFO_T;
+
+typedef std::map<std::string, SESSION_INFO_T> mapSessionInfo;
+typedef std::map<std::string, SESSION_INFO_T>::iterator itMapSessionInfo;
+
 #endif

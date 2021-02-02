@@ -92,7 +92,13 @@ bool AudioFocusManager::init(GMainLoop *mainLoop)
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "Failed to parse RequestPolicy Json config");
         return false;
     }
-
+#if defined(WEBOS_SOC_AUTO)
+    bool retVal = LSRegisterServerStatusEx(GetLSService(), SESSION_MANAGER, serviceStatusCallBack, this, nullptr, nullptr);
+    if (!retVal)
+    {
+         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "Failed to LSRegisterServerStatusEx");
+    }
+#endif
     printRequestPolicyJsonInfo();
     return true;
 }
@@ -205,7 +211,12 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
     if(strcmp(method, AF_API_REQUEST_FOCUS) == 0)
     {
         int displayId = -1;
+#if defined(WEBOS_SOC_AUTO)
+        std::string sessionInfo = LSMessageGetSessionId(message);
+        displayId = getSessionDisplayId(sessionInfo);
+#else
         msg.get("displayId", displayId);
+#endif
         auto itDisplay = mDisplayInfoMap.find(displayId);
         if (itDisplay == mDisplayInfoMap.end())
         {
@@ -251,20 +262,31 @@ Functionality of this method:
 bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *data)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"requestFocus");
+    int displayId = -1;
+    std::string requestName;
+    std::string reply;
+    bool subscription;
+    std::string streamType;
+#if defined(WEBOS_SOC_AUTO)
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3 (PROP(requestType, string),
+        PROP(subscribe, boolean), PROP(streamType, string)) REQUIRED_3(requestType, subscribe, streamType)));
+
+    if (!msg.parse(__FUNCTION__,sh))
+       return true;
+    std::string sessionInfo = LSMessageGetSessionId(message);
+    displayId = getSessionDisplayId(sessionInfo);
+#else
 
     LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_4 (PROP(requestType, string), PROP(displayId, integer),
                                     PROP(subscribe, boolean), PROP(streamType, string)) REQUIRED_4(requestType, displayId, subscribe, streamType)));
 
     if (!msg.parse(__FUNCTION__,sh))
        return true;
-
-    int displayId = -1;
-    std::string requestName;
-    std::string reply;
-    bool subscription;
-    std::string streamType;
-
     msg.get("displayId", displayId);
+#endif
+
+
+
     msg.get("requestType", requestName);
     msg.get("subscribe", subscription);
     msg.get("streamType", streamType);
@@ -322,6 +344,8 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
 Functionality of this method:
 Validating the display Id by matching it with the display Id
 */
+
+#if defined(WEBOS_SOC_AUTO)
 bool AudioFocusManager::validateDisplayId(int displayId)
 {
     if(displayId == DISPLAY_ID_0 || displayId == DISPLAY_ID_1 || displayId == DISPLAY_ID_2)
@@ -329,7 +353,15 @@ bool AudioFocusManager::validateDisplayId(int displayId)
     else
         return false;
 }
-
+#else
+bool AudioFocusManager::validateDisplayId(int displayId)
+{
+    if(displayId == DISPLAY_ID_0 || displayId == DISPLAY_ID_1 )
+        return true;
+    else
+        return false;
+}
+#endif
 /*
 Functionality of this method:
 ->Checks whether the incoming request is duplicate request or not.
@@ -539,13 +571,22 @@ Functionality of this method:
 */
 bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *data)
 {
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(displayId, integer), PROP(streamType, string)) REQUIRED_2(displayId, streamType)));
-    if (!msg.parse(__FUNCTION__, sh))
-        return true;
     int displayId = -1;
     std::string reply;
     std::string streamType;
+#if defined(WEBOS_SOC_AUTO)
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(streamType, string)) REQUIRED_1(streamType)));
+    if (!msg.parse(__FUNCTION__, sh))
+        return true;
+    std::string sessionInfo = LSMessageGetSessionId(message);
+    displayId = getSessionDisplayId(sessionInfo);
+#else
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(displayId, integer), PROP(streamType, string)) REQUIRED_2(displayId, streamType)));
+    if (!msg.parse(__FUNCTION__, sh))
+        return true;
     msg.get("displayId", displayId);
+#endif
+
     msg.get("streamType", streamType);
 
     if (!validateDisplayId(displayId))
@@ -685,15 +726,26 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     CLSError lserror;
     pbnjson::JValue jsonObject = pbnjson::JObject();
     std::string reply;
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(displayId, integer))
-        REQUIRED_1(displayId)));
-
-    if (!msg.parse(__FUNCTION__, sh))
-        return true;
     bool subscription;
     int displayId = -1;
     std::string streamType;
+#if defined(WEBOS_SOC_AUTO)
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_1(PROP(subscribe, boolean))));
+
+    if (!msg.parse(__FUNCTION__, sh))
+        return true;
+    std::string sessionInfo = LSMessageGetSessionId(message);
+    displayId = getSessionDisplayId(sessionInfo);
+#else
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(displayId, integer))
+        REQUIRED_1(displayId)));
+    if (!msg.parse(__FUNCTION__, sh))
+        return true;
     msg.get("displayId", displayId);
+
+#endif
+
+
     msg.get("streamType", streamType);
     if (!validateDisplayId(displayId))
     {

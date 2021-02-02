@@ -30,6 +30,7 @@ set(LOCATION_SERVICE_NAME audiofocusmanager)
 set(SRC
         ${PROJECT_SOURCE_DIR}/src/main.cpp
         ${PROJECT_SOURCE_DIR}/src/audioFocusManager.cpp
+        ${PROJECT_SOURCE_DIR}/src/sessionManager.cpp
         ${PROJECT_SOURCE_DIR}/src/log.cpp
         ${PROJECT_SOURCE_DIR}/src/utils.cpp
         ${PROJECT_SOURCE_DIR}/src/messageUtils.cpp
@@ -43,6 +44,13 @@ set(LIBRARIES
         ${PMLOGLIB_LDFLAGS}
         ${LIBPBNJSON_LDFLAGS}
 )
+
+
+if(WEBOS_TARGET_DISTRO STREQUAL "webos-auto")
+        if(WEBOS_TARGET_MACHINE STREQUAL "sa8155" OR WEBOS_TARGET_MACHINE STREQUAL "qemux86" OR WEBOS_TARGET_MACHINE STREQUAL "qemux86-64")
+            add_definitions(-DWEBOS_SOC_AUTO)
+        endif()
+endif()
 
 add_executable(${LOCATION_SERVICE_NAME} ${SRC})
 target_link_libraries(${LOCATION_SERVICE_NAME} ${LIBRARIES} pbnjson_cpp)

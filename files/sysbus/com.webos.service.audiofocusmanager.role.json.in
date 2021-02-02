@@ -6,7 +6,9 @@
     "permissions": [
         {
             "service":"com.webos.service.audiofocusmanager",
-            "outbound":[]
+            "outbound":[
+                "com.webos.service.sessionmanager"
+            ]
         }
     ]
 }

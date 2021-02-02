@@ -49,7 +49,7 @@ extern PmLogContext audioFocusMgrLogContext;
 #define MSGID_TEST_FAILED                                                    "AUDIOFOCUSMANAGER_UT_FAILED"                   //Audio focus manager Unittest failed
 #define MSGID_INVALID_INPUT                                                  "INVALID_INPUT"                                 //Invalid input params received
 #define MSGID_DATA_NULL                                                      "DATA_NULL"                                     //Null data received in pointer
-
+#define MSGID_SESSION_MANAGER                                                "SESSION_MANAGER"                               //session Id
 /// Test macro that will make a critical log entry if the test fails
 #define VERIFY(t) (G_LIKELY(t) || (PM_LOG_ERROR(MSGID_VERIFY_FAILED, INIT_KVCOUNT,\
                                                         "%s %s %d %s",   \

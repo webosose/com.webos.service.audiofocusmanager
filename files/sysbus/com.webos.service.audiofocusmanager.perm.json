@@ -1,4 +1,5 @@
 {
     "com.webos.service.audiofocusmanager": [
+        "session.management"
      ]
 }
