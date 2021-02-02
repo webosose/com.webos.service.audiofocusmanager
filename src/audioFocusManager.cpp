@@ -204,37 +204,37 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "Subscription cancelled from app %s", appId);
     if(strcmp(method, AF_API_REQUEST_FOCUS) == 0)
     {
-        int sessionId = -1;
-        msg.get("sessionId", sessionId);
-        auto itSession = mSessionInfoMap.find(sessionId);
-        if (itSession == mSessionInfoMap.end())
+        int displayId = -1;
+        msg.get("displayId", displayId);
+        auto itDisplay = mDisplayInfoMap.find(displayId);
+        if (itDisplay == mDisplayInfoMap.end())
         {
-            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New session entry for:%d Request feasible", sessionId);
+            PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New display entry for:%d Request feasible", displayId);
             return true;
         }
-        SESSION_INFO_T& sessionInfo = itSession->second;
-        for (auto itPaused = sessionInfo.pausedAppList.begin(); \
-            itPaused != sessionInfo.pausedAppList.end(); itPaused++)
+        DISPLAY_INFO_T& displayInfo = itDisplay->second;
+        for (auto itPaused = displayInfo.pausedAppList.begin(); \
+            itPaused != displayInfo.pausedAppList.end(); itPaused++)
         {
             if (appId == itPaused->appId)
             {
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "Paused app Killed, remove from list %s Request type: %s", \
                     appId, itPaused->requestType.c_str());
-                sessionInfo.pausedAppList.erase(itPaused--);
-                broadcastStatusToSubscribers(sessionId);
+                displayInfo.pausedAppList.erase(itPaused--);
+                broadcastStatusToSubscribers(displayId);
                 return true;
             }
         }
-        for (auto itActive = sessionInfo.activeAppList.begin(); itActive != sessionInfo.activeAppList.end(); itActive++)
+        for (auto itActive = displayInfo.activeAppList.begin(); itActive != displayInfo.activeAppList.end(); itActive++)
         {
             if (itActive->appId == appId)
             {
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"Active app Killed: Removing appId: %s Request type: %s", \
                     appId, itActive->requestType.c_str());
                 std::string requestType = itActive->requestType;
-                sessionInfo.activeAppList.erase(itActive--);
-                pausedAppToActive(sessionInfo, requestType);
-                broadcastStatusToSubscribers(sessionId);
+                displayInfo.activeAppList.erase(itActive--);
+                pausedAppToActive(displayInfo, requestType);
+                broadcastStatusToSubscribers(displayId);
                 return true;
             }
         }
@@ -252,26 +252,26 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"requestFocus");
 
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_4 (PROP(requestType, string), PROP(sessionId, integer),
-                                    PROP(subscribe, boolean), PROP(streamType, string)) REQUIRED_4(requestType, sessionId, subscribe, streamType)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_4 (PROP(requestType, string), PROP(displayId, integer),
+                                    PROP(subscribe, boolean), PROP(streamType, string)) REQUIRED_4(requestType, displayId, subscribe, streamType)));
 
     if (!msg.parse(__FUNCTION__,sh))
        return true;
 
-    int sessionId = -1;
+    int displayId = -1;
     std::string requestName;
     std::string reply;
     bool subscription;
     std::string streamType;
 
-    msg.get("sessionId", sessionId);
+    msg.get("displayId", displayId);
     msg.get("requestType", requestName);
     msg.get("subscribe", subscription);
     msg.get("streamType", streamType);
 
-    if (!validateSessionId(sessionId))
+    if (!validateDisplayId(displayId))
     {
-        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_SESSION_ID, "Invalid sessionId");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_DISPLAY_ID, "Invalid displayId");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
@@ -302,11 +302,11 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "requestFocus: sessionId: %d requestType: %s appId: %s streamType: %s", \
-        sessionId, requestName.c_str(), appId, streamType.c_str());
-    if (checkGrantedAlready(sh, message, appId, sessionId, requestName))
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "requestFocus: displayId: %d requestType: %s appId: %s streamType: %s", \
+        displayId, requestName.c_str(), appId, streamType.c_str());
+    if (checkGrantedAlready(sh, message, appId, displayId, requestName))
         return true;
-    if (!checkFeasibility(sessionId, requestName))
+    if (!checkFeasibility(displayId, requestName))
     {
         sendApplicationResponse(sh, message, "AF_CANNOTBEGRANTED");
         return true;
@@ -314,17 +314,17 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     sendApplicationResponse(sh, message, "AF_GRANTED");
     if (LSMessageIsSubscription(message))
         LSSubscriptionAdd(sh, "AFSubscriptionList", message, NULL);
-    updateSessionActiveAppList(sessionId, appId, requestName);
-    broadcastStatusToSubscribers(sessionId);
+    updateDisplayActiveAppList(displayId, appId, requestName);
+    broadcastStatusToSubscribers(displayId);
     return true;
 }
 /*
 Functionality of this method:
-Validating the session Id by matching it with the display Id
+Validating the display Id by matching it with the display Id
 */
-bool AudioFocusManager::validateSessionId(int sessionId)
+bool AudioFocusManager::validateDisplayId(int displayId)
 {
-    if(sessionId == DISPLAY_ID_0 || sessionId == DISPLAY_ID_1 || sessionId == DISPLAY_ID_2)
+    if(displayId == DISPLAY_ID_0 || displayId == DISPLAY_ID_1 || displayId == DISPLAY_ID_2)
         return true;
     else
         return false;
@@ -336,19 +336,19 @@ Functionality of this method:
 ->If it is a duplicate request sends AF_GRANTEDALREADY event to the app.
 */
 bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId,\
-    const int& sessionId, const std::string& requestType)
+    const int& displayId, const std::string& requestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready for appId:%s sessionId:%d requestType:%s",\
-        applicationId.c_str(), sessionId, requestType.c_str());
-    auto it = mSessionInfoMap.find(sessionId);
-    if (it == mSessionInfoMap.end())
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkGrantedAlready for appId:%s displayId:%d requestType:%s",\
+        applicationId.c_str(), displayId, requestType.c_str());
+    auto it = mDisplayInfoMap.find(displayId);
+    if (it == mDisplayInfoMap.end())
     {
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"Request from a new session %d", sessionId);
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"Request from a new display %d", displayId);
         return false;
     }
-    SESSION_INFO_T& sessionInfo = it->second;
-    for (auto itPaused = sessionInfo.pausedAppList.begin(); \
-            itPaused != sessionInfo.pausedAppList.end(); itPaused++)
+    DISPLAY_INFO_T& displayInfo = it->second;
+    for (auto itPaused = displayInfo.pausedAppList.begin(); \
+            itPaused != displayInfo.pausedAppList.end(); itPaused++)
     {
         if (itPaused->requestType == requestType && \
                 itPaused->appId == applicationId)
@@ -358,8 +358,8 @@ bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, st
             return true;
         }
     }
-    for (auto itActive = sessionInfo.activeAppList.begin(); \
-            itActive != sessionInfo.activeAppList.end(); itActive++)
+    for (auto itActive = displayInfo.activeAppList.begin(); \
+            itActive != displayInfo.activeAppList.end(); itActive++)
     {
         if (itActive->requestType == requestType && \
                 itActive->appId == applicationId)
@@ -373,22 +373,22 @@ bool AudioFocusManager::checkGrantedAlready(LSHandle *sh, LSMessage *message, st
 }
 
 /*Functionality of this method:
- * To check if active request types in the requesting session has any request which will not grant the new request type*/
-bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string& newRequestType)
+ * To check if active request types in the requesting display has any request which will not grant the new request type*/
+bool AudioFocusManager::checkFeasibility(const int& displayId, const std::string& newRequestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility for sessionId:%d newRequestType:%s",\
-        sessionId, newRequestType.c_str());
-    auto itSession = mSessionInfoMap.find(sessionId);
-    if (itSession == mSessionInfoMap.end())
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility for displayId:%d newRequestType:%s",\
+        displayId, newRequestType.c_str());
+    auto itDisplay = mDisplayInfoMap.find(displayId);
+    if (itDisplay == mDisplayInfoMap.end())
     {
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New session entry for:%d Request feasible", sessionId);
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: New display entry for:%d Request feasible", displayId);
         return true;
     }
-    SESSION_INFO_T& curSessionInfo = itSession->second;
+    DISPLAY_INFO_T& curdisplayInfo = itDisplay->second;
     //Check feasiblity in activeAppList pair to pair
-    if (checkIncomingPair(newRequestType, curSessionInfo.activeAppList))
+    if (checkIncomingPair(newRequestType, curdisplayInfo.activeAppList))
     {
-        for (auto itActive = curSessionInfo.activeAppList.begin(); itActive != curSessionInfo.activeAppList.end(); itActive++)
+        for (auto itActive = curdisplayInfo.activeAppList.begin(); itActive != curdisplayInfo.activeAppList.end(); itActive++)
         {
             auto itActiveRequestPolicy = mAFRequestPolicyInfo.find(itActive->requestType);
             if (itActiveRequestPolicy != mAFRequestPolicyInfo.end())
@@ -400,15 +400,15 @@ bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string
                     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: send AF_PAUSE to %s", \
                         itActive->appId.c_str());
                     manageAppSubscription(itActive->appId, "AF_PAUSE", 's');
-                    curSessionInfo.pausedAppList.push_back(*itActive);
-                    curSessionInfo.activeAppList.erase(itActive--);
+                    curdisplayInfo.pausedAppList.push_back(*itActive);
+                    curdisplayInfo.activeAppList.erase(itActive--);
                 }
                 else if("lost" == policyAction)
                 {
                     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: send AF_LOST to %s", \
                         itActive->appId.c_str());
                     manageAppSubscription(itActive->appId, "AF_LOST", 'n');
-                    curSessionInfo.activeAppList.erase(itActive--);
+                    curdisplayInfo.activeAppList.erase(itActive--);
                 }
                 else
                     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: App can mix and play %s", \
@@ -425,7 +425,7 @@ bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string
     }
     //Check feasiblity in pausedAppList pair to pair
     //Not checking for incoming list availability for incoming request type
-    for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
+    for (auto itPaused = curdisplayInfo.pausedAppList.begin(); itPaused != curdisplayInfo.pausedAppList.end(); itPaused++)
     {
         auto itPausedRequestPolicy = mAFRequestPolicyInfo.find(itPaused->requestType);
         if (itPausedRequestPolicy != mAFRequestPolicyInfo.end())
@@ -437,7 +437,7 @@ bool AudioFocusManager::checkFeasibility(const int& sessionId, const std::string
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: send AF_PAUSE to %s", \
                     itPaused->appId.c_str());
                 manageAppSubscription(itPaused->appId, "AF_LOST", 's');
-                curSessionInfo.pausedAppList.erase(itPaused--);
+                curdisplayInfo.pausedAppList.erase(itPaused--);
             }
             else
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"checkFeasibility: App can mix and play or already paused%s", \
@@ -509,27 +509,27 @@ std::string AudioFocusManager::getFocusPolicyType(const std::string& newRequestT
 }
 
 /*Functionality of this methos:
- * -> Update the session active app list if session already present
- *  ->Create new session Info and update active app list
+ * -> Update the display active app list if display already present
+ *  ->Create new display Info and update active app list
  */
-void AudioFocusManager::updateSessionActiveAppList(const int& sessionId, const std::string& appId, const std::string& requestType)
+void AudioFocusManager::updateDisplayActiveAppList(const int& displayId, const std::string& appId, const std::string& requestType)
 {
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionAppList: sessionId: %d", sessionId);
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateDisplayActiveAppList: displayId: %d", displayId);
     APP_INFO_T newAppInfo;
     newAppInfo.appId = appId;
     newAppInfo.requestType = requestType;
-    auto itSession = mSessionInfoMap.find(sessionId);
-    if (itSession == mSessionInfoMap.end())
+    auto itDisplay = mDisplayInfoMap.find(displayId);
+    if (itDisplay == mDisplayInfoMap.end())
     {
-        SESSION_INFO_T newSessionInfo;
-        newSessionInfo.activeAppList.push_back(newAppInfo);
-        mSessionInfoMap[sessionId] = newSessionInfo;
-        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateSessionActiveAppList: new session details added. Session: %d", \
-            sessionId);
+        DISPLAY_INFO_T newdisplayInfo;
+        newdisplayInfo.activeAppList.push_back(newAppInfo);
+        mDisplayInfoMap[displayId] = newdisplayInfo;
+        PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateDisplayActiveAppList: new display details added. Display: %d", \
+            displayId);
         return;
     }
-    SESSION_INFO_T& sessionInfo = itSession->second;
-    sessionInfo.activeAppList.push_back(newAppInfo);
+    DISPLAY_INFO_T& displayInfo = itDisplay->second;
+    displayInfo.activeAppList.push_back(newAppInfo);
 }
 
 /*
@@ -539,18 +539,18 @@ Functionality of this method:
 */
 bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *data)
 {
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(sessionId, integer), PROP(streamType, string)) REQUIRED_2(sessionId, streamType)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(displayId, integer), PROP(streamType, string)) REQUIRED_2(displayId, streamType)));
     if (!msg.parse(__FUNCTION__, sh))
         return true;
-    int sessionId = -1;
+    int displayId = -1;
     std::string reply;
     std::string streamType;
-    msg.get("sessionId", sessionId);
+    msg.get("displayId", displayId);
     msg.get("streamType", streamType);
 
-    if (!validateSessionId(sessionId))
+    if (!validateDisplayId(displayId))
     {
-        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_SESSION_ID, "Invalid sessionId");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_DISPLAY_ID, "Invalid displayId");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
@@ -565,31 +565,31 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
             return true;
         }
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: sessionId: %d appId: %s streamType: %s", sessionId, appId, streamType.c_str());
-    auto itSession = mSessionInfoMap.find(sessionId);
-    if (itSession == mSessionInfoMap.end())
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: displayId: %d appId: %s streamType: %s", displayId, appId, streamType.c_str());
+    auto itDisplay = mDisplayInfoMap.find(displayId);
+    if (itDisplay == mDisplayInfoMap.end())
     {
-        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: Session ID cannot be find");
-        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "No active requests found for the application");
+        PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: display ID cannot be find");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "display Id not found");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
-    SESSION_INFO_T& curSessionInfo = itSession->second;
-    for (auto itPaused = curSessionInfo.pausedAppList.begin(); itPaused != curSessionInfo.pausedAppList.end(); itPaused++)
+    DISPLAY_INFO_T& curdisplayInfo = itDisplay->second;
+    for (auto itPaused = curdisplayInfo.pausedAppList.begin(); itPaused != curdisplayInfo.pausedAppList.end(); itPaused++)
     {
         if (itPaused->appId == appId)
         {
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: Removing appId: %s Request type: %s", \
                 appId, itPaused->requestType.c_str());
             manageAppSubscription(appId, "AF_RELEASED", 'r');
-            curSessionInfo.pausedAppList.erase(itPaused--);
-            broadcastStatusToSubscribers(sessionId);
+            curdisplayInfo.pausedAppList.erase(itPaused--);
+            broadcastStatusToSubscribers(displayId);
             sendApplicationResponse(sh, message, "AF_SUCCESSFULLY_RELEASED");
             return true;
         }
     }
 
-    for (auto itActive = curSessionInfo.activeAppList.begin(); itActive != curSessionInfo.activeAppList.end(); itActive++)
+    for (auto itActive = curdisplayInfo.activeAppList.begin(); itActive != curdisplayInfo.activeAppList.end(); itActive++)
     {
         if (itActive->appId == appId)
         {
@@ -597,35 +597,35 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
                 appId, itActive->requestType.c_str());
             manageAppSubscription(appId, "AF_RELEASED", 'r');
             std::string requestType = itActive->requestType;
-            curSessionInfo.activeAppList.erase(itActive--);
-            pausedAppToActive(curSessionInfo, requestType);
-            broadcastStatusToSubscribers(sessionId);
+            curdisplayInfo.activeAppList.erase(itActive--);
+            pausedAppToActive(curdisplayInfo, requestType);
+            broadcastStatusToSubscribers(displayId);
             sendApplicationResponse(sh, message, "AF_SUCCESSFULLY_RELEASED");
             return true;
         }
     }
 
-    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: appId: %s, streamType: %s is not found in session: %d" , \
-        appId, streamType.c_str(), sessionId);
+    PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "releaseFocus: appId: %s, streamType: %s is not found in display: %d" , \
+        appId, streamType.c_str(), displayId);
     reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "Application not registered");
     LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
     return true;
 }
 
-bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo, const std::string& removedRequest)
+bool AudioFocusManager::pausedAppToActive(DISPLAY_INFO_T& displayInfo, const std::string& removedRequest)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive for removedRequest:%s", removedRequest.c_str());
-    if (sessionInfo.pausedAppList.size() == 1 && sessionInfo.activeAppList.empty())
+    if (displayInfo.pausedAppList.size() == 1 && displayInfo.activeAppList.empty())
     {
-        auto itPaused = sessionInfo.pausedAppList.back();
-        sessionInfo.activeAppList.push_back(itPaused);
+        auto itPaused = displayInfo.pausedAppList.back();
+        displayInfo.activeAppList.push_back(itPaused);
         PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", itPaused.appId.c_str());
         manageAppSubscription(itPaused.appId, "AF_GRANTED", 's');
-        sessionInfo.pausedAppList.pop_back();
+        displayInfo.pausedAppList.pop_back();
     }
     else
     {
-        for (auto itPaused = sessionInfo.pausedAppList.begin(); itPaused != sessionInfo.pausedAppList.end(); itPaused++)
+        for (auto itPaused = displayInfo.pausedAppList.begin(); itPaused != displayInfo.pausedAppList.end(); itPaused++)
         {
             auto itPausedRequestPolicy = mAFRequestPolicyInfo.find(itPaused->requestType);
             if (itPausedRequestPolicy != mAFRequestPolicyInfo.end())
@@ -633,12 +633,12 @@ bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo, const std
                 REQUEST_TYPE_POLICY_INFO_T& pausedRequestPolicy = itPausedRequestPolicy->second;
                 std::string policyAction = getFocusPolicyType(removedRequest, pausedRequestPolicy.incomingRequestInfo);
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"pausedAppToActive policyAction:%s", policyAction.c_str());
-                if ("pause" == policyAction && isIncomingPairRequestTypeActive(itPaused->requestType, sessionInfo))
+                if ("pause" == policyAction && isIncomingPairRequestTypeActive(itPaused->requestType, displayInfo))
                 {
-                    sessionInfo.activeAppList.push_back(*itPaused);
+                    displayInfo.activeAppList.push_back(*itPaused);
                     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", itPaused->appId.c_str());
                     manageAppSubscription(itPaused->appId, "AF_GRANTED", 's');
-                    sessionInfo.pausedAppList.erase(itPaused);
+                    displayInfo.pausedAppList.erase(itPaused);
                 }
                 else
                     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"pausedAppToActive incomingPairRequestType is not active");
@@ -651,10 +651,10 @@ bool AudioFocusManager::pausedAppToActive(SESSION_INFO_T& sessionInfo, const std
 }
 
 //Check if any other active app incoming request list does not have pause for already paused app, do not resume in that case
-bool AudioFocusManager::isIncomingPairRequestTypeActive(const std::string& requestType, const SESSION_INFO_T& sessionInfo)
+bool AudioFocusManager::isIncomingPairRequestTypeActive(const std::string& requestType, const DISPLAY_INFO_T& displayInfo)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "isIncomingPairRequestTypeActive for requestType:%s", requestType.c_str());
-    for (auto itActive = sessionInfo.activeAppList.begin(); itActive != sessionInfo.activeAppList.end(); itActive++)
+    for (auto itActive = displayInfo.activeAppList.begin(); itActive != displayInfo.activeAppList.end(); itActive++)
     {
         auto itPausedRequestPolicy = mAFRequestPolicyInfo.find(requestType);
         if (itPausedRequestPolicy != mAFRequestPolicyInfo.end())
@@ -677,7 +677,7 @@ bool AudioFocusManager::isIncomingPairRequestTypeActive(const std::string& reque
 
 /*
 Functionality of this method:
-->This will return the current status of granted request types in AudioFocusManager for each session
+->This will return the current status of granted request types in AudioFocusManager for each display
 */
 bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 {
@@ -685,19 +685,19 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
     CLSError lserror;
     pbnjson::JValue jsonObject = pbnjson::JObject();
     std::string reply;
-    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_3(PROP(subscribe, boolean), PROP(sessionId, integer), PROP(streamType, string))
-        REQUIRED_2(sessionId, streamType)));
+    LSMessageJsonParser msg(message, STRICT_SCHEMA(PROPS_2(PROP(subscribe, boolean), PROP(displayId, integer))
+        REQUIRED_1(displayId)));
 
     if (!msg.parse(__FUNCTION__, sh))
         return true;
     bool subscription;
-    int sessionId = -1;
+    int displayId = -1;
     std::string streamType;
-    msg.get("sessionId", sessionId);
+    msg.get("displayId", displayId);
     msg.get("streamType", streamType);
-    if (!validateSessionId(sessionId))
+    if (!validateDisplayId(displayId))
     {
-        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_SESSION_ID, "Invalid sessionId");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_DISPLAY_ID, "Invalid displayId");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
@@ -715,59 +715,59 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
         jsonObject.put("subscribed", false);
     }
     jsonObject.put("returnValue", true);
-    jsonObject.put("audioFocusStatus", getStatusPayload(sessionId));
+    jsonObject.put("audioFocusStatus", getStatusPayload(displayId));
 
     if(!LSMessageReply(sh, message, jsonObject.stringify().c_str(), &lserror))
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"sendSignal:LSMessageReply Failed");
         return false;
     }
-    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus: Succesfully sent response, streamType: %s sessionId:%d", streamType.c_str(), sessionId);
+    PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatus: Succesfully sent response, streamType: %s displayId:%d", streamType.c_str(), displayId);
     return true;
 }
 
 /*Functionality of this method
  * TO get the JSON payload for getStatus response in string format
  */
-pbnjson::JValue AudioFocusManager::getStatusPayload(const int& sessionId)
+pbnjson::JValue AudioFocusManager::getStatusPayload(const int& displayId)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatusPayload");
 
     pbnjson::JValue audioFocusStatus = pbnjson::JObject();
-    pbnjson::JArray sessionsList = pbnjson::JArray();
-    for (auto sessionInfomap : mSessionInfoMap)
+    pbnjson::JArray displaysList = pbnjson::JArray();
+    for (auto displayInfomap : mDisplayInfoMap)
     {
-        if (sessionId == sessionInfomap.first)
+        if (displayId == displayInfomap.first)
         {
-            SESSION_INFO_T& sessionInfo = sessionInfomap.second;
-            int sessionId = sessionInfomap.first;
+            DISPLAY_INFO_T& displayInfo = displayInfomap.second;
+            int displayId = displayInfomap.first;
             pbnjson::JArray activeAppArray = pbnjson::JArray();
             pbnjson::JArray pausedAppArray = pbnjson::JArray();
-            pbnjson::JValue curSession = pbnjson::JObject();
+            pbnjson::JValue curDisplay = pbnjson::JObject();
 
-            curSession.put("sessionId", sessionId);
-            for (auto activeAppInfo : sessionInfo.activeAppList)
+            curDisplay.put("displayId", displayId);
+            for (auto activeAppInfo : displayInfo.activeAppList)
             {
                 pbnjson::JValue activeApp = pbnjson::JObject();
                 activeApp.put("appId", activeAppInfo.appId);
                 activeApp.put("requestType", activeAppInfo.requestType);
                 activeAppArray.append(activeApp);
             }
-            curSession.put("activeRequests",activeAppArray);
+            curDisplay.put("activeRequests",activeAppArray);
 
-            for (auto pausedAppInfo : sessionInfo.pausedAppList)
+            for (auto pausedAppInfo : displayInfo.pausedAppList)
             {
                 pbnjson::JValue pausedApp = pbnjson::JObject();
                 pausedApp.put("appId", pausedAppInfo.appId);
                 pausedApp.put("requestType", pausedAppInfo.requestType);
                 pausedAppArray.append(pausedApp);
             }
-            curSession.put("pausedRequests", pausedAppArray);
-            sessionsList.append(curSession);
+            curDisplay.put("pausedRequests", pausedAppArray);
+            displaysList.append(curDisplay);
         }
     }
 
-    audioFocusStatus.put("audioFocusStatus", sessionsList);
+    audioFocusStatus.put("audioFocusStatus", displaysList);
     return audioFocusStatus;
 }
 
@@ -775,10 +775,10 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(const int& sessionId)
  * Functionality of this method:
  * Notigy /getStatus subscribers on the current AudioFocusManager status
  */
-void AudioFocusManager::broadcastStatusToSubscribers(int sessionId)
+void AudioFocusManager::broadcastStatusToSubscribers(int displayId)
 {
     CLSError lserror;
-    std::string reply = getStatusPayload(sessionId).stringify();
+    std::string reply = getStatusPayload(displayId).stringify();
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscribers: reply message to subscriber: %s", \
             reply.c_str());
 

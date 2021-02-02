@@ -38,14 +38,14 @@ typedef struct AppInfo
     std::string streamType;
 }APP_INFO_T;
 
-typedef struct SessionInfo
+typedef struct DisplayInfo
 {
     std::list<APP_INFO_T> activeAppList;
     std::list<APP_INFO_T> pausedAppList;
-}SESSION_INFO_T;
+}DISPLAY_INFO_T;
 
 using RequestPolicyInfoMap = std::map<std::string, REQUEST_TYPE_POLICY_INFO_T>;
-using SessionInfoMap = std::map<int, SESSION_INFO_T>;
+using DisplayInfoMap = std::map<int, DISPLAY_INFO_T>;
 
 struct CLSError : public LSError
 {

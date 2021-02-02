@@ -43,7 +43,7 @@ LSHandle *GetLSService();
 #define AF_ERR_CODE_INVALID_SCHEMA 1
 #define AF_ERR_CODE_UNKNOWN_REQUEST 2
 #define AF_ERR_CODE_INTERNAL 3
-#define AF_ERR_CODE_INVALID_SESSION_ID 4
+#define AF_ERR_CODE_INVALID_DISPLAY_ID 4
 
 #define DISPLAY_ID_0 0
 #define DISPLAY_ID_1 1
@@ -93,7 +93,7 @@ public:
 private:
 
     RequestPolicyInfoMap mAFRequestPolicyInfo;
-    SessionInfoMap mSessionInfoMap;
+    DisplayInfoMap mDisplayInfoMap;
     static AudioFocusManager *AFService;
     static LSMethod rootMethod[];
 
@@ -104,19 +104,19 @@ private:
     bool getStatus(LSHandle *sh, LSMessage *message, void *data);
     bool cancelFunction(LSHandle *sh, LSMessage *message, void *data);
 
-    bool validateSessionId(int sessionId);
-    void broadcastStatusToSubscribers(int sessionId);
-    pbnjson::JValue getStatusPayload(const int& sessionId);
+    bool validateDisplayId(int displayId);
+    void broadcastStatusToSubscribers(int displayId);
+    pbnjson::JValue getStatusPayload(const int& displayId);
     bool loadRequestPolicyJsonConfig();
     void printRequestPolicyJsonInfo();
     void sendApplicationResponse(LSHandle *serviceHandle, LSMessage *message, const std::string& payload);
-    bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const int& sessionId, const std::string& requestType);
-    bool checkFeasibility(const int& sessionId, const std::string& newRequestType);
-    void updateSessionActiveAppList(const int& sessionId, const std::string& appId, const std::string& requestType);
+    bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const int& displayId, const std::string& requestType);
+    bool checkFeasibility(const int& displayId, const std::string& newRequestType);
+    void updateDisplayActiveAppList(const int& displayId, const std::string& appId, const std::string& requestType);
     void manageAppSubscription(const std::string& applicationId, const std::string& payload, const char operation);
     bool checkIncomingPair(const std::string& newRequestType, const std::list<APP_INFO_T>& appList);
-    bool pausedAppToActive(SESSION_INFO_T& sessionInfo, const std::string& removedRequest);
-    bool isIncomingPairRequestTypeActive(const std::string& requestType, const SESSION_INFO_T& sessionInfo);
+    bool pausedAppToActive(DISPLAY_INFO_T& displayInfo, const std::string& removedRequest);
+    bool isIncomingPairRequestTypeActive(const std::string& requestType, const DISPLAY_INFO_T& displayInfo);
     std::string getFocusPolicyType(const std::string& newRequestType, const pbnjson::JValue& incomingRequestInfo);
 };
 
