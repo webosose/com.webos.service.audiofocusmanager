@@ -336,7 +336,7 @@ bool AudioFocusManager::requestFocus(LSHandle *sh, LSMessage *message, void *dat
     sendApplicationResponse(sh, message, "AF_GRANTED");
     if (LSMessageIsSubscription(message))
         LSSubscriptionAdd(sh, "AFSubscriptionList", message, NULL);
-    updateDisplayActiveAppList(displayId, appId, requestName);
+    updateDisplayActiveAppList(displayId, appId, requestName, streamType);
     broadcastStatusToSubscribers(displayId);
     return true;
 }
@@ -544,12 +544,13 @@ std::string AudioFocusManager::getFocusPolicyType(const std::string& newRequestT
  * -> Update the display active app list if display already present
  *  ->Create new display Info and update active app list
  */
-void AudioFocusManager::updateDisplayActiveAppList(const int& displayId, const std::string& appId, const std::string& requestType)
+void AudioFocusManager::updateDisplayActiveAppList(const int& displayId, const std::string& appId, const std::string& requestType, const std::string& streamType)
 {
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"updateDisplayActiveAppList: displayId: %d", displayId);
     APP_INFO_T newAppInfo;
     newAppInfo.appId = appId;
     newAppInfo.requestType = requestType;
+    newAppInfo.streamType = streamType;
     auto itDisplay = mDisplayInfoMap.find(displayId);
     if (itDisplay == mDisplayInfoMap.end())
     {
@@ -745,8 +746,6 @@ bool AudioFocusManager::getStatus(LSHandle *sh, LSMessage *message, void *data)
 
 #endif
 
-
-    msg.get("streamType", streamType);
     if (!validateDisplayId(displayId))
     {
         reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INVALID_DISPLAY_ID, "Invalid displayId");
@@ -786,41 +785,40 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(const int& displayId)
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"getStatusPayload");
 
     pbnjson::JValue audioFocusStatus = pbnjson::JObject();
+    pbnjson::JValue curDisplay = pbnjson::JObject();
     pbnjson::JArray displaysList = pbnjson::JArray();
+    pbnjson::JArray activeAppArray = pbnjson::JArray();
+    pbnjson::JArray pausedAppArray = pbnjson::JArray();
     for (auto displayInfomap : mDisplayInfoMap)
     {
         if (displayId == displayInfomap.first)
         {
             DISPLAY_INFO_T& displayInfo = displayInfomap.second;
             int displayId = displayInfomap.first;
-            pbnjson::JArray activeAppArray = pbnjson::JArray();
-            pbnjson::JArray pausedAppArray = pbnjson::JArray();
-            pbnjson::JValue curDisplay = pbnjson::JObject();
-
-            curDisplay.put("displayId", displayId);
             for (auto activeAppInfo : displayInfo.activeAppList)
             {
                 pbnjson::JValue activeApp = pbnjson::JObject();
                 activeApp.put("appId", activeAppInfo.appId);
                 activeApp.put("requestType", activeAppInfo.requestType);
+                activeApp.put("streamType", activeAppInfo.streamType);
                 activeAppArray.append(activeApp);
             }
-            curDisplay.put("activeRequests",activeAppArray);
-
             for (auto pausedAppInfo : displayInfo.pausedAppList)
             {
                 pbnjson::JValue pausedApp = pbnjson::JObject();
                 pausedApp.put("appId", pausedAppInfo.appId);
                 pausedApp.put("requestType", pausedAppInfo.requestType);
+                pausedApp.put("streamType", pausedAppInfo.streamType);
                 pausedAppArray.append(pausedApp);
             }
-            curDisplay.put("pausedRequests", pausedAppArray);
-            displaysList.append(curDisplay);
         }
     }
+    curDisplay.put("displayId", displayId);
+    curDisplay.put("pausedRequests", pausedAppArray);
+    curDisplay.put("activeRequests",activeAppArray);
+    displaysList.append(curDisplay);
 
-    audioFocusStatus.put("audioFocusStatus", displaysList);
-    return audioFocusStatus;
+    return displaysList;
 }
 
 /*
@@ -830,7 +828,11 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(const int& displayId)
 void AudioFocusManager::broadcastStatusToSubscribers(int displayId)
 {
     CLSError lserror;
-    std::string reply = getStatusPayload(displayId).stringify();
+    pbnjson::JValue jsonObject = pbnjson::JObject();
+    jsonObject.put("returnValue",true);
+    jsonObject.put("subscribed",true);
+    jsonObject.put("audioFocusStatus", getStatusPayload(displayId));
+    std::string reply = jsonObject.stringify();
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"broadcastStatusToSubscribers: reply message to subscriber: %s", \
             reply.c_str());
 
@@ -920,6 +922,8 @@ void AudioFocusManager::sendApplicationResponse(LSHandle *serviceHandle, LSMessa
 {
     pbnjson::JValue replyObject = pbnjson::Object();
     replyObject.put("returnValue", true);
+    if (payload != "AF_SUCCESSFULLY_RELEASED")
+        replyObject.put("subscribed", true);
     replyObject.put("result", payload.c_str());
     std::string reply = replyObject.stringify();
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"sendApplicationResponse: %s", reply.c_str());

@@ -132,7 +132,7 @@ private:
     void sendApplicationResponse(LSHandle *serviceHandle, LSMessage *message, const std::string& payload);
     bool checkGrantedAlready(LSHandle *sh, LSMessage *message, std::string applicationId, const int& displayId, const std::string& requestType);
     bool checkFeasibility(const int& displayId, const std::string& newRequestType);
-    void updateDisplayActiveAppList(const int& displayId, const std::string& appId, const std::string& requestType);
+    void updateDisplayActiveAppList(const int& displayId, const std::string& appId, const std::string& requestType, const std::string& streamType);
     void manageAppSubscription(const std::string& applicationId, const std::string& payload, const char operation);
     bool checkIncomingPair(const std::string& newRequestType, const std::list<APP_INFO_T>& appList);
     bool pausedAppToActive(DISPLAY_INFO_T& displayInfo, const std::string& removedRequest);
