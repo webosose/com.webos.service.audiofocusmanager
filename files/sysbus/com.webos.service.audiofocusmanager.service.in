@@ -2,3 +2,4 @@
 Name=com.webos.service.audiofocusmanager
 Exec=@WEBOS_INSTALL_SBINDIR@/audiofocusmanager
 Type=static
+allowedInSession=false

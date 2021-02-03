@@ -611,7 +611,7 @@ bool AudioFocusManager::releaseFocus(LSHandle *sh, LSMessage *message, void *dat
     if (itDisplay == mDisplayInfoMap.end())
     {
         PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT,"releaseFocus: display ID cannot be find");
-        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "display Id not found");
+        reply = STANDARD_JSON_ERROR(AF_ERR_CODE_INTERNAL, "No active requests found for the application");
         LSMessageResponse(sh, message, reply.c_str(), eLSReply, false);
         return true;
     }
