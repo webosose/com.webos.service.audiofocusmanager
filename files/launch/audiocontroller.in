@@ -1,0 +1,13 @@
+# @@@LICENSE
+#
+#      Copyright (c) 2014 LG Electronics Inc. All Rights Reserved
+#
+# LICENSE@@@
+
+start on lsm-ready
+
+respawn
+
+script
+        exec @WEBOS_INSTALL_SBINDIR@/audiocontroller
+end script

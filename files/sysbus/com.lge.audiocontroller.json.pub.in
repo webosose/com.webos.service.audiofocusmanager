@@ -1,0 +1,14 @@
+{
+    "role": {
+        "exeName":"@WEBOS_INSTALL_SBINDIR@/audiocontroller",
+        "type": "regular",
+        "allowedNames": ["com.lge.audiocontroller"]
+    },
+    "permissions": [
+        {
+            "service":"com.lge.audiocontroller",
+            "inbound":["*"],
+            "outbound":["*"]
+        }
+    ]
+}
