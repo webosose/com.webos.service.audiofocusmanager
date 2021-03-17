@@ -680,7 +680,8 @@ bool AudioFocusManager::pausedAppToActive(DISPLAY_INFO_T& displayInfo, const std
                     displayInfo.activeAppList.push_back(*itPaused);
                     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", itPaused->appId.c_str());
                     manageAppSubscription(itPaused->appId, "AF_GRANTED", 's');
-                    displayInfo.pausedAppList.erase(itPaused);
+                    itPaused = displayInfo.pausedAppList.erase(itPaused);
+                    --itPaused;
                 }
                 else
                     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"pausedAppToActive incomingPairRequestType is not active");
@@ -794,7 +795,6 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(const int& displayId)
         if (displayId == displayInfomap.first)
         {
             DISPLAY_INFO_T& displayInfo = displayInfomap.second;
-            int displayId = displayInfomap.first;
             for (auto activeAppInfo : displayInfo.activeAppList)
             {
                 pbnjson::JValue activeApp = pbnjson::JObject();
@@ -868,7 +868,11 @@ void AudioFocusManager::manageAppSubscription(const std::string& applicationId, 
         {
             LSMessage *iter_message = LSSubscriptionNext(iter);
             const char* msgJsonArgument = LSMessageGetPayload(iter_message);
-            parser.parse(msgJsonArgument, pbnjson::JSchemaFragment("{}"));
+            if (!parser.parse(msgJsonArgument, pbnjson::JSchemaFragment("{}")))
+            {
+                PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"Not a valid json payload");
+                continue;
+            }
             pbnjson::JValue msgJsonSubArgument = parser.getDom();
             const char* appId = LSMessageGetApplicationID(iter_message);
             if (appId == NULL)
