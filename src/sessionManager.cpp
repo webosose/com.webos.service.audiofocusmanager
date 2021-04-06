@@ -51,7 +51,7 @@ void AudioFocusManager::readSessionInfo(LSMessage *message)
     if (returnValue)
     {
         pbnjson::JValue payload = msg.get();
-        pbnjson::JValue sessionInfo = payload["sessionList"];
+        pbnjson::JValue sessionInfo = payload["sessions"];
         if (!sessionInfo.isArray())
         {
             PM_LOG_ERROR(MSGID_SESSION_MANAGER, INIT_KVCOUNT,\

@@ -57,8 +57,8 @@ LSHandle *GetLSService();
 #define RSE_RIGHT_SESSION   "RSE-R"
 #define MAX_SESSIONS        3
 
-#define SESSION_MANAGER "com.webos.service.sessionmanager"
-#define GET_SESSION_LIST      "luna://com.webos.service.sessionmanager/getSessionList"
+#define ACCOUNT_SERVICE     "com.webos.service.account"
+#define GET_SESSION_LIST    "luna://com.webos.service.account/getSessions"
 #endif
 
 #define LSERROR_CHECK_AND_PRINT(ret)\

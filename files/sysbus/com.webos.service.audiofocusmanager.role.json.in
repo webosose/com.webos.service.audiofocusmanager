@@ -7,7 +7,7 @@
         {
             "service":"com.webos.service.audiofocusmanager",
             "outbound":[
-                "com.webos.service.sessionmanager"
+                "com.webos.service.account"
             ]
         }
     ]

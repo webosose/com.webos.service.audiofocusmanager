@@ -93,7 +93,7 @@ bool AudioFocusManager::init(GMainLoop *mainLoop)
         return false;
     }
 #if defined(WEBOS_SOC_AUTO)
-    bool retVal = LSRegisterServerStatusEx(GetLSService(), SESSION_MANAGER, serviceStatusCallBack, this, nullptr, nullptr);
+    bool retVal = LSRegisterServerStatusEx(GetLSService(), ACCOUNT_SERVICE, serviceStatusCallBack, this, nullptr, nullptr);
     if (!retVal)
     {
          PM_LOG_ERROR(MSGID_CORE, INIT_KVCOUNT, "Failed to LSRegisterServerStatusEx");
