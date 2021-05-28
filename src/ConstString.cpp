@@ -71,7 +71,7 @@ bool ConstString::UnitTest()
     ConstString        one("one");
     ConstString        two("two");
 
-    UT_CHECK(nullstring.c_str() != 0 && *nullstring.c_str() == 0);
+    UT_CHECK(nullstring.c_str() != nullptr);
     UT_CHECK(nullstring == nullstring2);
     UT_CHECK(!(nullstring != nullstring2));
 

@@ -60,7 +60,6 @@
 #define REQUIRED_8(p1, p2, p3, p4, p5, p6, p7, p8)       ",\"required\":[\"" #p1 "\",\"" #p2 "\",\"" #p3 "\",\"" #p4 "\",\"" #p5 "\",\"" #p6 "\",\"" #p7 "\",\"" #p8 "\"]"
 #define REQUIRED_9(p1, p2, p3, p4, p5, p6, p7, p8, p9)   ",\"required\":[\"" #p1 "\",\"" #p2 "\",\"" #p3 "\",\"" #p4 "\",\"" #p5 "\",\"" #p6 "\",\"" #p7 "\",\"" #p8 "\",\"" #p9 "\"]"
 
-extern const char * STANDARD_JSON_SUCCESS;
 
 // Build a standard reply as a const char * string consistently
 #define STANDARD_JSON_SUCCESS                         "{\"returnValue\":true}"

@@ -84,7 +84,7 @@ public:
     const gchar * c_str() const  { return mString ? mString : ""; }
 
     /// Tells if this is the empty string "" (default value)
-    bool        isEmpty() const    { return mString == 0 || *mString == 0; }
+    bool        isEmpty() const    { return mString == nullptr; }
 
     /// Build an std::string using a ConstString. Will copy the text
     // and the resulting std::string will survive the ConstString

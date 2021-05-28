@@ -82,9 +82,9 @@ bool LSMessageJsonParser::parse(const char * callerFunction,
     if (!mParser.parse(payload, mSchema))
     {
         const char *    sender = LSMessageGetSenderServiceName(mMessage);
-        if (sender == 0 || *sender == 0)
+        if (sender == nullptr)
             sender = LSMessageGetSender(mMessage);
-        if (sender == 0)
+        if (sender == nullptr)
             sender = "";
         const char * errorText = "Invalid Schema";
         bool notJson = true;
