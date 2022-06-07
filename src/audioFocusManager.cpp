@@ -1,6 +1,6 @@
 /* @@@LICENSE
 *
-*      Copyright (c) 2020 - 2021 LG Electronics Company.
+*      Copyright (c) 2020 - 2022 LG Electronics Company.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -795,7 +795,7 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(const int& displayId)
         if (displayId == displayInfomap.first)
         {
             DISPLAY_INFO_T& displayInfo = displayInfomap.second;
-            for (auto activeAppInfo : displayInfo.activeAppList)
+            for (auto &activeAppInfo : displayInfo.activeAppList)
             {
                 pbnjson::JValue activeApp = pbnjson::JObject();
                 activeApp.put("appId", activeAppInfo.appId);
@@ -803,7 +803,7 @@ pbnjson::JValue AudioFocusManager::getStatusPayload(const int& displayId)
                 activeApp.put("streamType", activeAppInfo.streamType);
                 activeAppArray.append(activeApp);
             }
-            for (auto pausedAppInfo : displayInfo.pausedAppList)
+            for (auto &pausedAppInfo : displayInfo.pausedAppList)
             {
                 pbnjson::JValue pausedApp = pbnjson::JObject();
                 pausedApp.put("appId", pausedAppInfo.appId);
