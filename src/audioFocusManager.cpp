@@ -1,6 +1,6 @@
 /* @@@LICENSE
 *
-*      Copyright (c) 2020 - 2022 LG Electronics Company.
+*      Copyright (c) 2020 - 2023 LG Electronics Company.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -208,7 +208,7 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
         appId = LSMessageGetSenderServiceName(message);
     }
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "Subscription cancelled from app %s", appId);
-    if(strcmp(method, AF_API_REQUEST_FOCUS) == 0)
+    if((method != NULL) && strcmp(method, AF_API_REQUEST_FOCUS) == 0)
     {
         int displayId = -1;
 #if defined(WEBOS_SOC_AUTO)
@@ -227,7 +227,7 @@ bool AudioFocusManager::cancelFunction(LSHandle *sh, LSMessage *message, void *d
         for (auto itPaused = displayInfo.pausedAppList.begin(); \
             itPaused != displayInfo.pausedAppList.end(); itPaused++)
         {
-            if (appId == itPaused->appId)
+            if ((appId != NULL) && appId == itPaused->appId)
             {
                 PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "Paused app Killed, remove from list %s Request type: %s", \
                     appId, itPaused->requestType.c_str());
@@ -880,7 +880,7 @@ void AudioFocusManager::manageAppSubscription(const std::string& applicationId, 
                 appId = LSMessageGetSenderServiceName(iter_message);
             }
             PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"manageAppSubscription App id :%s", appId);
-            if(!((applicationId).compare(appId)))
+            if((appId != NULL) && !((applicationId).compare(appId)))
             {
                 switch(operation)
                 {

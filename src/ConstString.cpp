@@ -1,7 +1,7 @@
 /*
  * ConstString.h
  *
- *  Copyright (c) 2020 - 2021 LG Electronics Company.
+ *  Copyright (c) 2020 - 2023 LG Electronics Company.
  *  All rights reserved.
  *
  */
@@ -179,7 +179,10 @@ std::string & append_format(std::string & str, const char * format, ...)
         result = vsnprintf(buffer, length, format, args);
     } while (result == -1 && result < length);
     va_end(args);
-    str.append(buffer, result);
-    delete[] buffer;
+    if (buffer)
+    {
+        str.append(buffer, result);
+        delete[] buffer;
+    }
     return str;
 }
