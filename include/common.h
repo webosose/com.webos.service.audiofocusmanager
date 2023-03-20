@@ -19,7 +19,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include <map>
 #include <string>
 #include <list>

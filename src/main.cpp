@@ -12,7 +12,7 @@
  */
 
 #include <iostream>
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include <glib.h>
 #include <audioFocusManager.h>
 #include <signal.h>

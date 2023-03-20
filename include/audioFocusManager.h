@@ -27,7 +27,7 @@
 #include "common.h"
 #include <sys/time.h>
 #include <pbnjson.hpp>
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include <sstream>
 #include "messageUtils.h"
 #include "log.h"
