@@ -659,7 +659,7 @@ bool AudioFocusManager::pausedAppToActive(DISPLAY_INFO_T& displayInfo, const std
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive for removedRequest:%s", removedRequest.c_str());
     if (displayInfo.pausedAppList.size() == 1 && displayInfo.activeAppList.empty())
     {
-        auto itPaused = displayInfo.pausedAppList.back();
+        auto& itPaused = displayInfo.pausedAppList.back();
         displayInfo.activeAppList.push_back(itPaused);
         PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT, "pausedAppToActive: send AF_GRANETD to %s", itPaused.appId.c_str());
         manageAppSubscription(itPaused.appId, "AF_GRANTED", 's');
