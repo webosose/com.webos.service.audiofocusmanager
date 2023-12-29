@@ -1,6 +1,6 @@
 # @@@LICENSE
 #
-#   Copyright (c) 2014 - 2021 LG Electronics Inc. All Rights Reserved
+# Copyright (c) 2014 - 2024 LG Electronics Inc. All Rights Reserved
 #
 # LICENSE@@@
 
@@ -46,10 +46,8 @@ set(LIBRARIES
 )
 
 
-if(WEBOS_TARGET_DISTRO STREQUAL "webos-auto")
-        if(WEBOS_TARGET_MACHINE STREQUAL "sa8155" OR WEBOS_TARGET_MACHINE STREQUAL "qemux86" OR WEBOS_TARGET_MACHINE STREQUAL "qemux86-64")
-            add_definitions(-DWEBOS_SOC_AUTO)
-        endif()
+if(EXTENSION_WEBOS_AUTO)
+    add_definitions(-DWEBOS_SOC_AUTO)
 endif()
 
 add_executable(${LOCATION_SERVICE_NAME} ${SRC})
