@@ -172,6 +172,7 @@ bool AudioFocusManager::audioFunctionsRegister(std::string serviceName, GMainLoo
     PM_LOG_INFO(MSGID_CORE, INIT_KVCOUNT,"audioFunctionsRegister");
     bool bRetVal;
     CLSError mLSError;
+    void * ptrAudioFocusManager = (void *) this;
     // add root category
     if (!LSRegisterCategory (mServiceHandle, "/",
                                  rootMethod, NULL, NULL, &mLSError))
@@ -180,13 +181,13 @@ bool AudioFocusManager::audioFunctionsRegister(std::string serviceName, GMainLoo
         mLSError.Print(__FUNCTION__,__LINE__);
         return false;
     }
-    if (!LSCategorySetData(mServiceHandle, "/", this, &mLSError))
+    if (!LSCategorySetData(mServiceHandle, "/", ptrAudioFocusManager, &mLSError))
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Setting userdata for APIs failed");
         mLSError.Print(__FUNCTION__,__LINE__);
         return false;
     }
-    if (!LSSubscriptionSetCancelFunction(mServiceHandle, AudioFocusManager::_cancelFunction, this, &mLSError))
+    if (!LSSubscriptionSetCancelFunction(mServiceHandle, AudioFocusManager::_cancelFunction, ptrAudioFocusManager, &mLSError))
     {
         PM_LOG_ERROR(MSGID_INIT, INIT_KVCOUNT, "Setting cancelfunction for APIs failed");
         mLSError.Print(__FUNCTION__,__LINE__);
